@@ -5,6 +5,7 @@ GLOBAL BOOT
 
 EXTERN ExitProcess
 EXTERN GetStdHandle
+EXTERN WriteFile
 
 %DEFINE TP R15
 %DEFINE WP R14
@@ -56,6 +57,17 @@ EXTERN GetStdHandle
             RESQ %2
 
     __?SECT?__
+%ENDMACRO
+
+%MACRO STRING 2
+    %ASSIGN LENGTH %STRLEN(%2)
+    %IF LENGTH > 255
+        %ERROR "STRING TOO LONG"
+    %ENDIF
+
+    ALIGN 8
+    CODE_FIELD %1, IMPL_STRING
+        DB LENGTH, %2, 0
 %ENDMACRO
 
 SECTION .text
@@ -126,15 +138,41 @@ SECTION .text
     PRIMITIVE GET_STD_HANDLE
         MOV RCX, [DP]
         CALL GetStdHandle
-        MOV [DP], RAX
         CMP RAX, -1
         JE .INVALID
         TEST RAX, RAX
         JZ .INVALID
+        MOV [DP], RAX
         NEXT
 
         .INVALID:
         INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
+
+    ; PTR SIZE HANDLE --
+    PRIMITIVE WRITE_FILE
+        MOV RCX, [DP]
+        MOV RDX, [DP + 16]
+        MOV R8, [DP + 8]
+        LEA R9, [RSP + 8 * 5]
+        XOR RAX, RAX
+        MOV [RSP + 8 * 4], RAX
+        CALL WriteFile
+        TEST RAX, RAX
+        JZ .FAILED
+        ADD DP, 8 * 3
+        NEXT
+
+        .FAILED:
+        INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
+
+    ; -- PTR SIZE
+    IMPL_STRING:
+        MOVZX RAX, BYTE [WP + 8]
+        LEA RBX, [WP + 9]
+        SUB DP, 8 * 2
+        MOV [DP], RAX
+        MOV [DP + 8], RBX
+        NEXT
 
 SECTION .rdata
     ALIGN 8
@@ -146,6 +184,9 @@ SECTION .rdata
     ; --
     PROCEDURE INITIALIZE
         DQ SET_DSTACK
+        DQ INIT_IO
+        DQ BANNER
+        DQ PRINT
         DQ RETURN
 
     ; --
@@ -171,6 +212,15 @@ SECTION .rdata
         DQ STDOUT_HANDLE
         DQ STORE
 
+        DQ RETURN
+
+    STRING BANNER, `MINI-TIL (C) 2023 DAVID DETWEILER\n\n`
+
+    ; PTR SIZE --
+    PROCEDURE PRINT
+        DQ STDOUT_HANDLE
+        DQ LOAD
+        DQ WRITE_FILE
         DQ RETURN
 
 SECTION .bss
