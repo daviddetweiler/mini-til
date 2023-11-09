@@ -27,7 +27,56 @@ extern GetLastError
 %define stack_depth 1024
 %define stack_base(label) label + stack_depth * 8
 
+%assign top_entry 0
+%define entry(id) header_ %+ id
+%define header_0 0
+%assign this_entry_flag 0
+%assign dict_finalized 0
+
+%macro immediate 0
+    %assign this_entry_flag 0x80
+%endmacro
+
+%macro header 1
+    %push
+
+    %if dict_finalized
+        %error "dictionary already finalized"
+    %endif
+
+    %defstr %$name %1
+    %assign %$length %strlen(%$name)
+    %if %$length > 127
+        %error "name too long"
+    %endif
+
+    %assign %$this_entry top_entry + 1
+
+    [section .rdata]
+        align 8
+        entry(%$this_entry):
+            dq entry(top_entry)
+            db %$length | this_entry_flag
+            db %$name, 0
+
+    __?SECT?__
+
+    %assign this_entry_flag 0
+    %assign top_entry %$this_entry
+
+    %pop
+%endmacro
+
+%macro finalize_dictionary 1
+    %push
+    %assign %$final_id top_entry + 1
+    constant %1, entry(%$final_id)
+    %assign dict_finalized 1
+    %pop
+%endmacro
+
 %macro code_field 2
+    header %1
     [section .rdata]
         align 8
         %1:
@@ -49,13 +98,17 @@ extern GetLastError
 %endmacro
 
 %macro string 2
-    %assign length %strlen(%2)
-    %if length > 255
+    %push
+
+    %assign %$length %strlen(%2)
+    %if %$length > 255
         %error "string too long"
     %endif
 
     code_field %1, impl_string
-        db length, %2, 0
+        db %$length, %2, 0
+
+    %pop
 %endmacro
 
 %macro constant 2
@@ -65,6 +118,10 @@ extern GetLastError
 %endmacro
 
 %macro variable 2
+    %if %2 < 1
+        %error "variable size must be at least 1"
+    %endif
+
     constant %1, %%storage
     [section .bss]
         align 8
@@ -229,10 +286,13 @@ section .text
     ; value -- value=0?
     primitive eq_zero
         mov rax, [dp]
+        xor rbx, rbx
         test rax, rax
-        setz al
-        movzx rax, al
-        mov [dp], rax
+        jnz .nzero
+        not rbx
+
+        .nzero:
+        mov [dp], rbx
         next
 
     ; value --
@@ -253,10 +313,10 @@ section .text
         mov rbx, [tp]
         add tp, 8
         test rax, rax
-        jnz .nzero
+        jz .zero
         add tp, rbx
 
-        .nzero:
+        .zero:
         next
 
     ; --
@@ -266,20 +326,50 @@ section .text
         next
 
     ; a b -- a=b?
+    immediate
     primitive eq
         mov rax, [dp]
         mov rbx, [dp + 8]
         add dp, 8
-        cmp rax, rbx
-        sete al
-        movzx rax, al
-        mov [dp], rax
+        xor rcx, rcx
+        test rax, rbx
+        jne .neq
+        not rcx
+
+        .neq:
+        mov [dp], rcx
         next
 
     ; -- last-error
     primitive get_last_error
         call GetLastError
         sub dp, 8
+        mov [dp], rax
+        next
+
+    ; entry-ptr -- entry-name length
+    primitive entry_name
+        mov rax, [dp]
+        add rax, 8
+        movzx rbx, byte [rax]
+        and rbx, 0x7f
+        lea rax, [rax + 1]
+        mov [dp], rax
+        sub dp, 8
+        mov [dp], rbx
+        next
+
+    ; entry-ptr -- entry-is-immediate?
+    primitive entry_is_immediate
+        mov rax, [dp]
+        add rax, 8
+        movzx rbx, byte [rax]
+        xor rax, rax
+        test rbx, 0x80
+        jz .zero
+        not rax
+
+        .zero:
         mov [dp], rax
         next
 
@@ -305,9 +395,14 @@ section .rdata
     procedure initialize
         dq set_dstack
         dq init_io
+        dq kernel
+        dq dictionary
+        dq store
         dq banner
         dq print
         dq return
+
+    variable dictionary, 1
 
     ; --
     procedure exit
@@ -386,3 +481,6 @@ section .bss
 
     dstack:
         resq stack_depth
+
+section .rdata
+    finalize_dictionary kernel
