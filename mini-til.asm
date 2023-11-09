@@ -6,6 +6,8 @@ global boot
 extern ExitProcess
 extern GetStdHandle
 extern WriteFile
+extern ReadFile
+extern GetLastError
 
 %define tp r15
 %define wp r14
@@ -65,10 +67,34 @@ extern WriteFile
         %error "string too long"
     %endif
 
-    align 8
     code_field %1, impl_string
         db length, %2, 0
 %endmacro
+
+%macro constant 2
+    align 8
+    code_field %1, impl_constant
+        dq %2
+%endmacro
+
+%macro maybe 1
+    dq maybe_execute
+    dq %1
+%endmacro
+
+%macro jump_to 1
+    dq jump
+    dq %1 - %%following
+    %%following:
+%endmacro
+
+%macro branch_to 1
+    dq branch
+    dq %1 - %%following
+    %%following:
+%endmacro
+
+%define config_input_buffer_size 4096
 
 section .text
     boot:
@@ -173,6 +199,10 @@ section .text
         .ok:
         next
 
+    ; --
+    primitive crash
+        int 0x29 ; fast_fail_fatal_app_exit
+
     ; -- ptr size
     impl_string:
         movzx rax, byte [wp + 8]
@@ -187,12 +217,95 @@ section .text
         add dp, 8
         next
 
+    ; buffer size handle -- bytes-read success?
+    primitive read_file
+        mov rcx, [dp]
+        mov rdx, [dp + 16]
+        mov r8, [dp + 8]
+        lea r9, [rsp + 8 * 5]
+        xor rax, rax
+        mov [rsp + 8 * 4], rax
+        call ReadFile
+        add dp, 8
+        mov [dp], rax
+        mov rax, [rsp + 8 * 5]
+        mov [dp + 8], rax
+        next
+
+    ; value -- value=0?
+    primitive eq_zero
+        mov rax, [dp]
+        test rax, rax
+        setz al
+        movzx rax, al
+        mov [dp], rax
+        next
+
+    ; value --
+    primitive maybe_execute
+        mov rax, [dp]
+        add dp, 8
+        test rax, rax
+        jnz .nzero
+        add tp, 8
+
+        .nzero:
+        next
+
+    ; value --
+    primitive branch
+        mov rax, [dp]
+        add dp, 8
+        mov rbx, [tp]
+        add tp, 8
+        test rax, rax
+        jnz .nzero
+        add tp, rbx
+
+        .nzero:
+        next
+
+    ; --
+    primitive jump
+        mov rax, [tp]
+        lea tp, [tp + rax + 8]
+        next
+
+    ; a b -- a=b?
+    primitive eq
+        mov rax, [dp]
+        mov rbx, [dp + 8]
+        add dp, 8
+        cmp rax, rbx
+        sete al
+        movzx rax, al
+        mov [dp], rax
+        next
+
+    ; -- last-error
+    primitive get_last_error
+        call GetLastError
+        sub dp, 8
+        mov [dp], rax
+        next
+
 section .rdata
     align 8
     program:
         dq set_rstack
         dq initialize
-        dq exit
+
+        .next_input:
+        dq refill_input
+        dq input_valid_bytes
+        dq load
+        dq eq_zero
+        maybe exit
+        dq input_buffer
+        dq input_valid_bytes
+        dq load
+        dq print
+        jump_to .next_input
 
     ; --
     procedure initialize
@@ -238,6 +351,32 @@ section .rdata
         dq write_file
         dq assert
         dq drop
+        dq return
+
+    variable input_buffer, (config_input_buffer_size / 8) + 1
+    variable input_valid_bytes, 1
+    constant input_buffer_size, config_input_buffer_size
+
+    ; --
+    ;
+    ; Signals EOF by setting input_valid_bytes to 0
+    procedure refill_input
+        dq input_buffer
+        dq input_buffer_size
+        dq stdin_handle
+        dq load
+        dq read_file
+        branch_to .success
+        dq get_last_error
+        dq literal
+        dq 0x6d
+        dq eq
+        branch_to .success
+        dq crash
+
+        .success:
+        dq input_valid_bytes
+        dq store
         dq return
 
 section .bss
