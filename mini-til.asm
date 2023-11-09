@@ -48,19 +48,6 @@ extern GetLastError
     code_field %1, impl_procedure
 %endmacro
 
-%macro variable 2
-    align 8
-    code_field %1, impl_constant
-        dq %%storage
-
-    [section .bss]
-        align 8
-        %%storage:
-            resq %2
-
-    __?SECT?__
-%endmacro
-
 %macro string 2
     %assign length %strlen(%2)
     %if length > 255
@@ -75,6 +62,16 @@ extern GetLastError
     align 8
     code_field %1, impl_constant
         dq %2
+%endmacro
+
+%macro variable 2
+    constant %1, %%storage
+    [section .bss]
+        align 8
+        %%storage:
+            resq %2
+
+    __?SECT?__
 %endmacro
 
 %macro maybe 1
@@ -189,14 +186,11 @@ section .text
         mov [dp], rax
         next
 
-    ; value -- value
-    primitive assert
+    ; a -- a a
+    primitive copy
         mov rax, [dp]
-        test rax, rax
-        jnz .ok
-        int 0x29 ; fast_fail_fatal_app_exit
-
-        .ok:
+        sub dp, 8
+        mov [dp], rax
         next
 
     ; --
@@ -377,6 +371,13 @@ section .rdata
         .success:
         dq input_valid_bytes
         dq store
+        dq return
+
+    ; value -- value
+    procedure assert
+        dq copy
+        dq eq_zero
+        maybe crash
         dq return
 
 section .bss
