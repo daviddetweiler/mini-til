@@ -134,7 +134,7 @@ section .text
         mov [dp], rax
         next
 
-    ; id -- handle
+    ; id -- handle?
     primitive get_std_handle
         mov rcx, [dp]
         call GetStdHandle
@@ -146,9 +146,11 @@ section .text
         next
 
         .invalid:
-        int 0x29 ; fast_fail_fatal_app_exit
+        xor rax, rax
+        mov [dp], rax
+        next
 
-    ; ptr size handle --
+    ; ptr size handle -- success?
     primitive write_file
         mov rcx, [dp]
         mov rdx, [dp + 16]
@@ -157,13 +159,19 @@ section .text
         xor rax, rax
         mov [rsp + 8 * 4], rax
         call WriteFile
-        test rax, rax
-        jz .failed
-        add dp, 8 * 3
+        add dp, 8 * 2
+        mov [dp], rax
         next
 
-        .failed:
+    ; value -- value
+    primitive assert
+        mov rax, [dp]
+        test rax, rax
+        jnz .ok
         int 0x29 ; fast_fail_fatal_app_exit
+
+        .ok:
+        next
 
     ; -- ptr size
     impl_string:
@@ -172,6 +180,11 @@ section .text
         sub dp, 8 * 2
         mov [dp], rax
         mov [dp + 8], rbx
+        next
+
+    ; value --
+    primitive drop
+        add dp, 8
         next
 
 section .rdata
@@ -203,12 +216,14 @@ section .rdata
         dq literal
         dq -10
         dq get_std_handle
+        dq assert
         dq stdin_handle
         dq store
 
         dq literal
         dq -11
         dq get_std_handle
+        dq assert
         dq stdout_handle
         dq store
 
@@ -221,6 +236,8 @@ section .rdata
         dq stdout_handle
         dq load
         dq write_file
+        dq assert
+        dq drop
         dq return
 
 section .bss
