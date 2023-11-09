@@ -4,6 +4,7 @@ BITS 64
 GLOBAL BOOT
 
 EXTERN ExitProcess
+EXTERN GetStdHandle
 
 %DEFINE TP R15
 %DEFINE WP R14
@@ -42,6 +43,19 @@ EXTERN ExitProcess
 %MACRO PROCEDURE 1
     ALIGN 8
     CODE_FIELD %1, IMPL_PROCEDURE
+%ENDMACRO
+
+%MACRO VARIABLE 2
+    ALIGN 8
+    CODE_FIELD %1, IMPL_CONSTANT
+        DQ %%STORAGE
+
+    [SECTION .bss]
+        ALIGN 8
+        %%STORAGE:
+            RESQ %2
+
+    __?SECT?__
 %ENDMACRO
 
 SECTION .text
@@ -86,6 +100,42 @@ SECTION .text
         MOV RCX, [DP]
         CALL ExitProcess
 
+    ; -- CONSTANT
+    IMPL_CONSTANT:
+        MOV RAX, [WP + 8]
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
+
+    ; VALUE PTR --
+    PRIMITIVE STORE
+        MOV RAX, [DP]
+        MOV RBX, [DP + 8]
+        ADD DP, 8 * 2
+        MOV [RAX], RBX
+        NEXT
+
+    ; PTR -- VALUE
+    PRIMITIVE LOAD
+        MOV RAX, [DP]
+        MOV RAX, [RAX]
+        MOV [DP], RAX
+        NEXT
+
+    ; ID -- HANDLE
+    PRIMITIVE GET_STD_HANDLE
+        MOV RCX, [DP]
+        CALL GetStdHandle
+        MOV [DP], RAX
+        CMP RAX, -1
+        JE .INVALID
+        TEST RAX, RAX
+        JZ .INVALID
+        NEXT
+
+        .INVALID:
+        INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
+
 SECTION .rdata
     ALIGN 8
     PROGRAM:
@@ -103,6 +153,25 @@ SECTION .rdata
         DQ LITERAL
         DQ 0
         DQ EXIT_PROCESS
+
+    VARIABLE STDIN_HANDLE, 1
+    VARIABLE STDOUT_HANDLE, 1
+
+    ; --
+    PROCEDURE INIT_IO
+        DQ LITERAL
+        DQ -10
+        DQ GET_STD_HANDLE
+        DQ STDIN_HANDLE
+        DQ STORE
+
+        DQ LITERAL
+        DQ -11
+        DQ GET_STD_HANDLE
+        DQ STDOUT_HANDLE
+        DQ STORE
+
+        DQ RETURN
 
 SECTION .bss
     RSTACK:
