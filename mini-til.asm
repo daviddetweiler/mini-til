@@ -1,231 +1,231 @@
-DEFAULT REL
-BITS 64
+default rel
+bits 64
 
-GLOBAL BOOT
+global boot
 
-EXTERN ExitProcess
-EXTERN GetStdHandle
-EXTERN WriteFile
+extern ExitProcess
+extern GetStdHandle
+extern WriteFile
 
-%DEFINE TP R15
-%DEFINE WP R14
-%DEFINE RP R13
-%DEFINE DP R12
+%define tp r15
+%define wp r14
+%define rp r13
+%define dp r12
 
-%MACRO RUN 0
-    JMP [WP]
-%ENDMACRO
+%macro run 0
+    jmp [wp]
+%endmacro
 
-%MACRO NEXT 0
-    MOV WP, [TP]
-    ADD TP, 8
-    RUN
-%ENDMACRO
+%macro next 0
+    mov wp, [tp]
+    add tp, 8
+    run
+%endmacro
 
-%DEFINE STACK_DEPTH 1024
-%DEFINE STACK_BASE(LABEL) LABEL + STACK_DEPTH * 8
+%define stack_depth 1024
+%define stack_base(label) label + stack_depth * 8
 
-%MACRO CODE_FIELD 2
-    [SECTION .rdata]
-        ALIGN 8
+%macro code_field 2
+    [section .rdata]
+        align 8
         %1:
-            DQ %2
+            dq %2
 
     __?SECT?__
-%ENDMACRO
+%endmacro
 
-%MACRO PRIMITIVE 1
-    ; X86 PREFERS 16-BYTE ALIGNED JUMP TARGETS
-    ALIGN 16
-    CODE_FIELD %1, %%CODE
-        %%CODE:
-%ENDMACRO
+%macro primitive 1
+    ; x86 prefers 16-byte aligned jump targets
+    align 16
+    code_field %1, %%code
+        %%code:
+%endmacro
 
-%MACRO PROCEDURE 1
-    ALIGN 8
-    CODE_FIELD %1, IMPL_PROCEDURE
-%ENDMACRO
+%macro procedure 1
+    align 8
+    code_field %1, impl_procedure
+%endmacro
 
-%MACRO VARIABLE 2
-    ALIGN 8
-    CODE_FIELD %1, IMPL_CONSTANT
-        DQ %%STORAGE
+%macro variable 2
+    align 8
+    code_field %1, impl_constant
+        dq %%storage
 
-    [SECTION .bss]
-        ALIGN 8
-        %%STORAGE:
-            RESQ %2
+    [section .bss]
+        align 8
+        %%storage:
+            resq %2
 
     __?SECT?__
-%ENDMACRO
+%endmacro
 
-%MACRO STRING 2
-    %ASSIGN LENGTH %STRLEN(%2)
-    %IF LENGTH > 255
-        %ERROR "STRING TOO LONG"
-    %ENDIF
+%macro string 2
+    %assign length %strlen(%2)
+    %if length > 255
+        %error "string too long"
+    %endif
 
-    ALIGN 8
-    CODE_FIELD %1, IMPL_STRING
-        DB LENGTH, %2, 0
-%ENDMACRO
+    align 8
+    code_field %1, impl_string
+        db length, %2, 0
+%endmacro
 
-SECTION .text
-    BOOT:
-        SUB RSP, 8 + 8 * 16
-        LEA TP, PROGRAM
-        NEXT
-
-    ; --
-    PRIMITIVE SET_RSTACK
-        MOV RP, STACK_BASE(RSTACK)
-        NEXT
+section .text
+    boot:
+        sub rsp, 8 + 8 * 16
+        lea tp, program
+        next
 
     ; --
-    IMPL_PROCEDURE:
-        SUB RP, 8
-        MOV [RP], TP
-        LEA TP, [WP + 8]
-        NEXT
+    primitive set_rstack
+        mov rp, stack_base(rstack)
+        next
 
     ; --
-    PRIMITIVE RETURN
-        MOV TP, [RP]
-        ADD RP, 8
-        NEXT
+    impl_procedure:
+        sub rp, 8
+        mov [rp], tp
+        lea tp, [wp + 8]
+        next
 
     ; --
-    PRIMITIVE SET_DSTACK
-        MOV DP, STACK_BASE(DSTACK)
-        NEXT
-
-    ; -- VALUE
-    PRIMITIVE LITERAL
-        MOV RAX, [TP]
-        ADD TP, 8
-        SUB DP, 8
-        MOV [DP], RAX
-        NEXT
-
-    ; CODE --
-    PRIMITIVE EXIT_PROCESS
-        MOV RCX, [DP]
-        CALL ExitProcess
-
-    ; -- CONSTANT
-    IMPL_CONSTANT:
-        MOV RAX, [WP + 8]
-        SUB DP, 8
-        MOV [DP], RAX
-        NEXT
-
-    ; VALUE PTR --
-    PRIMITIVE STORE
-        MOV RAX, [DP]
-        MOV RBX, [DP + 8]
-        ADD DP, 8 * 2
-        MOV [RAX], RBX
-        NEXT
-
-    ; PTR -- VALUE
-    PRIMITIVE LOAD
-        MOV RAX, [DP]
-        MOV RAX, [RAX]
-        MOV [DP], RAX
-        NEXT
-
-    ; ID -- HANDLE
-    PRIMITIVE GET_STD_HANDLE
-        MOV RCX, [DP]
-        CALL GetStdHandle
-        CMP RAX, -1
-        JE .INVALID
-        TEST RAX, RAX
-        JZ .INVALID
-        MOV [DP], RAX
-        NEXT
-
-        .INVALID:
-        INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
-
-    ; PTR SIZE HANDLE --
-    PRIMITIVE WRITE_FILE
-        MOV RCX, [DP]
-        MOV RDX, [DP + 16]
-        MOV R8, [DP + 8]
-        LEA R9, [RSP + 8 * 5]
-        XOR RAX, RAX
-        MOV [RSP + 8 * 4], RAX
-        CALL WriteFile
-        TEST RAX, RAX
-        JZ .FAILED
-        ADD DP, 8 * 3
-        NEXT
-
-        .FAILED:
-        INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
-
-    ; -- PTR SIZE
-    IMPL_STRING:
-        MOVZX RAX, BYTE [WP + 8]
-        LEA RBX, [WP + 9]
-        SUB DP, 8 * 2
-        MOV [DP], RAX
-        MOV [DP + 8], RBX
-        NEXT
-
-SECTION .rdata
-    ALIGN 8
-    PROGRAM:
-        DQ SET_RSTACK
-        DQ INITIALIZE
-        DQ EXIT
+    primitive return
+        mov tp, [rp]
+        add rp, 8
+        next
 
     ; --
-    PROCEDURE INITIALIZE
-        DQ SET_DSTACK
-        DQ INIT_IO
-        DQ BANNER
-        DQ PRINT
-        DQ RETURN
+    primitive set_dstack
+        mov dp, stack_base(dstack)
+        next
+
+    ; -- value
+    primitive literal
+        mov rax, [tp]
+        add tp, 8
+        sub dp, 8
+        mov [dp], rax
+        next
+
+    ; code --
+    primitive exit_process
+        mov rcx, [dp]
+        call ExitProcess
+
+    ; -- constant
+    impl_constant:
+        mov rax, [wp + 8]
+        sub dp, 8
+        mov [dp], rax
+        next
+
+    ; value ptr --
+    primitive store
+        mov rax, [dp]
+        mov rbx, [dp + 8]
+        add dp, 8 * 2
+        mov [rax], rbx
+        next
+
+    ; ptr -- value
+    primitive load
+        mov rax, [dp]
+        mov rax, [rax]
+        mov [dp], rax
+        next
+
+    ; id -- handle
+    primitive get_std_handle
+        mov rcx, [dp]
+        call GetStdHandle
+        cmp rax, -1
+        je .invalid
+        test rax, rax
+        jz .invalid
+        mov [dp], rax
+        next
+
+        .invalid:
+        int 0x29 ; fast_fail_fatal_app_exit
+
+    ; ptr size handle --
+    primitive write_file
+        mov rcx, [dp]
+        mov rdx, [dp + 16]
+        mov r8, [dp + 8]
+        lea r9, [rsp + 8 * 5]
+        xor rax, rax
+        mov [rsp + 8 * 4], rax
+        call WriteFile
+        test rax, rax
+        jz .failed
+        add dp, 8 * 3
+        next
+
+        .failed:
+        int 0x29 ; fast_fail_fatal_app_exit
+
+    ; -- ptr size
+    impl_string:
+        movzx rax, byte [wp + 8]
+        lea rbx, [wp + 9]
+        sub dp, 8 * 2
+        mov [dp], rax
+        mov [dp + 8], rbx
+        next
+
+section .rdata
+    align 8
+    program:
+        dq set_rstack
+        dq initialize
+        dq exit
 
     ; --
-    PROCEDURE EXIT
-        DQ LITERAL
-        DQ 0
-        DQ EXIT_PROCESS
-
-    VARIABLE STDIN_HANDLE, 1
-    VARIABLE STDOUT_HANDLE, 1
+    procedure initialize
+        dq set_dstack
+        dq init_io
+        dq banner
+        dq print
+        dq return
 
     ; --
-    PROCEDURE INIT_IO
-        DQ LITERAL
-        DQ -10
-        DQ GET_STD_HANDLE
-        DQ STDIN_HANDLE
-        DQ STORE
+    procedure exit
+        dq literal
+        dq 0
+        dq exit_process
 
-        DQ LITERAL
-        DQ -11
-        DQ GET_STD_HANDLE
-        DQ STDOUT_HANDLE
-        DQ STORE
+    variable stdin_handle, 1
+    variable stdout_handle, 1
 
-        DQ RETURN
+    ; --
+    procedure init_io
+        dq literal
+        dq -10
+        dq get_std_handle
+        dq stdin_handle
+        dq store
 
-    STRING BANNER, `MINI-TIL (C) 2023 DAVID DETWEILER\n\n`
+        dq literal
+        dq -11
+        dq get_std_handle
+        dq stdout_handle
+        dq store
 
-    ; PTR SIZE --
-    PROCEDURE PRINT
-        DQ STDOUT_HANDLE
-        DQ LOAD
-        DQ WRITE_FILE
-        DQ RETURN
+        dq return
 
-SECTION .bss
-    RSTACK:
-        RESQ STACK_DEPTH
+    string banner, `Mini-TIL (c) 2023 David Detweiler\n\n`
 
-    DSTACK:
-        RESQ STACK_DEPTH
+    ; ptr size --
+    procedure print
+        dq stdout_handle
+        dq load
+        dq write_file
+        dq return
+
+section .bss
+    rstack:
+        resq stack_depth
+
+    dstack:
+        resq stack_depth
