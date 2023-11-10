@@ -410,10 +410,48 @@ section .text
 
     ; ptr -- new-ptr
     primitive parse_consume_spaces
+        mov rax, [dp]
+        jmp .next_char
+
+        .consume:
+        add rax, 1
+        
+        .next_char:
+        movzx rbx, byte [rax]
+        cmp rbx, ` `
+        je .consume
+        cmp rbx, `\t`
+        je .consume
+        cmp rbx, `\n`
+        je .consume
+        cmp rbx, `\r`
+        je .consume
+
+        mov [dp], rax
         next
 
     ; ptr -- new-ptr
     primitive parse_consume_nonspaces
+        next
+
+    ; --
+    primitive break
+        int3
+        next
+
+    ; byte ptr --
+    primitive store_byte
+        mov rax, [dp]
+        mov rbx, [dp + 8]
+        add dp, 8 * 2
+        mov [rax], bl
+        next
+
+    ; ptr -- byte
+    primitive load_byte
+        mov rax, [dp]
+        movzx rbx, byte [rax]
+        mov [dp], rbx
         next
 
 section .rdata
@@ -506,6 +544,9 @@ section .rdata
         dq copy
         dq input_buffer
         dq add
+        dq zero
+        dq over
+        dq store_byte
         dq input_end_ptr
         dq store
         dq eq_zero
@@ -528,6 +569,9 @@ section .rdata
         dq input_refill
         branch_to .eof
         dq parse_strip_spaces
+        dq copy
+        dq eq_zero
+        branch_to .eof
         dq input_end_ptr
         dq load
         dq over
