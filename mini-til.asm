@@ -30,10 +30,14 @@ extern GetLastError
 %assign top_entry 0
 %define entry(id) header_ %+ id
 %define header_0 0
+%assign this_entry_flag 0
 %assign dict_finalized 0
-%assign immediate_flag 0x80
 
-%macro header 1-2 0
+%macro immediate 0
+    %assign this_entry_flag 0x80
+%endmacro
+
+%macro header 1
     %push
 
     %if dict_finalized
@@ -52,7 +56,7 @@ extern GetLastError
         align 8
         entry(%$this_entry):
             dq entry(top_entry)
-            db %$length | %2
+            db %$length | this_entry_flag
             db %$name, 0
 
     __?SECT?__
@@ -64,10 +68,15 @@ extern GetLastError
 %endmacro
 
 %macro finalize_dictionary 1
-    constant %1, entry(top_entry)
+    %push
+    %assign %$final_id top_entry + 1
+    constant %1, entry(%$final_id)
+    %assign dict_finalized 1
+    %pop
 %endmacro
 
 %macro code_field 2
+    header %1
     [section .rdata]
         align 8
         %1:
@@ -148,7 +157,6 @@ section .text
         next
 
     ; --
-    header "set-rstack"
     primitive set_rstack
         mov rp, stack_base(rstack)
         next
@@ -161,20 +169,17 @@ section .text
         next
 
     ; --
-    header "return"
     primitive return
         mov tp, [rp]
         add rp, 8
         next
 
     ; --
-    header "set-dstack"
     primitive set_dstack
         mov dp, stack_base(dstack)
         next
 
     ; -- value
-    header "literal"
     primitive literal
         mov rax, [tp]
         add tp, 8
@@ -183,7 +188,6 @@ section .text
         next
 
     ; code --
-    header "exit-process"
     primitive exit_process
         mov rcx, [dp]
         call ExitProcess
@@ -196,7 +200,6 @@ section .text
         next
 
     ; value ptr --
-    header "->"
     primitive store
         mov rax, [dp]
         mov rbx, [dp + 8]
@@ -205,7 +208,6 @@ section .text
         next
 
     ; ptr -- value
-    header "<-"
     primitive load
         mov rax, [dp]
         mov rax, [rax]
@@ -213,7 +215,6 @@ section .text
         next
 
     ; id -- handle?
-    header "get-std-handle"
     primitive get_std_handle
         mov rcx, [dp]
         call GetStdHandle
@@ -230,7 +231,6 @@ section .text
         next
 
     ; ptr size handle -- success?
-    header "write-file"
     primitive write_file
         mov rcx, [dp]
         mov rdx, [dp + 16]
@@ -244,7 +244,6 @@ section .text
         next
 
     ; a -- a a
-    header "copy"
     primitive copy
         mov rax, [dp]
         sub dp, 8
@@ -252,7 +251,6 @@ section .text
         next
 
     ; --
-    header "crash"
     primitive crash
         int 0x29 ; fast_fail_fatal_app_exit
 
@@ -266,13 +264,11 @@ section .text
         next
 
     ; value --
-    header "drop"
     primitive drop
         add dp, 8
         next
 
     ; buffer size handle -- bytes-read success?
-    header "read-file"
     primitive read_file
         mov rcx, [dp]
         mov rdx, [dp + 16]
@@ -288,7 +284,6 @@ section .text
         next
 
     ; value -- value=0?
-    header "=0"
     primitive eq_zero
         mov rax, [dp]
         xor rbx, rbx
@@ -301,7 +296,6 @@ section .text
         next
 
     ; value --
-    header "maybe"
     primitive maybe_execute
         mov rax, [dp]
         add dp, 8
@@ -313,7 +307,6 @@ section .text
         next
 
     ; value --
-    header "branch"
     primitive branch
         mov rax, [dp]
         add dp, 8
@@ -327,14 +320,13 @@ section .text
         next
 
     ; --
-    header "jump"
     primitive jump
         mov rax, [tp]
         lea tp, [tp + rax + 8]
         next
 
     ; a b -- a=b?
-    header "="
+    immediate
     primitive eq
         mov rax, [dp]
         mov rbx, [dp + 8]
@@ -349,7 +341,6 @@ section .text
         next
 
     ; -- last-error
-    header "get-last-error"
     primitive get_last_error
         call GetLastError
         sub dp, 8
@@ -357,7 +348,6 @@ section .text
         next
 
     ; entry-ptr -- entry-name length
-    header "entry-name"
     primitive entry_name
         mov rax, [dp]
         add rax, 8
@@ -370,7 +360,6 @@ section .text
         next
 
     ; entry-ptr -- entry-is-immediate?
-    header "entry-is-immediate?"
     primitive entry_is_immediate
         mov rax, [dp]
         add rax, 8
@@ -403,7 +392,6 @@ section .rdata
         jump_to .next_input
 
     ; --
-    header "initialize"
     procedure initialize
         dq set_dstack
         dq init_io
@@ -414,24 +402,18 @@ section .rdata
         dq print
         dq return
 
-    header "dictionary"
     variable dictionary, 1
 
     ; --
-    header "exit"
     procedure exit
         dq literal
         dq 0
         dq exit_process
 
-    header "stdin-handle"
     variable stdin_handle, 1
-    
-    header "stdout-handle"
     variable stdout_handle, 1
 
     ; --
-    header "init-io"
     procedure init_io
         dq literal
         dq -10
@@ -449,11 +431,9 @@ section .rdata
 
         dq return
 
-    header "banner"
     string banner, `Mini-TIL (c) 2023 David Detweiler\n\n`
 
     ; ptr size --
-    header "print"
     procedure print
         dq stdout_handle
         dq load
@@ -462,19 +442,13 @@ section .rdata
         dq drop
         dq return
 
-    header "input-buffer"
     variable input_buffer, (config_input_buffer_size / 8) + 1
-
-    header "input-valid-bytes"
     variable input_valid_bytes, 1
-
-    header "input-buffer-size"
     constant input_buffer_size, config_input_buffer_size
 
     ; --
     ;
     ; Signals EOF by setting input_valid_bytes to 0
-    header "refill-input"
     procedure refill_input
         dq input_buffer
         dq input_buffer_size
@@ -495,7 +469,6 @@ section .rdata
         dq return
 
     ; value -- value
-    header "assert"
     procedure assert
         dq copy
         dq eq_zero
@@ -510,5 +483,4 @@ section .bss
         resq stack_depth
 
 section .rdata
-    header "kernel"
     finalize_dictionary kernel
