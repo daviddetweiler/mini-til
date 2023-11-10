@@ -15,11 +15,18 @@ global boot
     %macro call_import 1
         call %1
     %endmacro
+
+    %macro prologue 0
+        sub rsp, 8 + 8 * 16
+    %endmacro
 %else
     %define base_address 0x2000000000
 
     %macro call_import 1
         call [%1]
+    %endmacro
+
+    %macro prologue 0
     %endmacro
 %endif
 
@@ -191,9 +198,12 @@ global boot
 %define config_input_buffer_size 4096
 %define config_parse_buffer_size 32
 
+section .bss
+    bss_start:
+
 section .text
     boot:
-        sub rsp, 8 + 8 * 16
+        prologue
         lea tp, program
         next
 
@@ -709,3 +719,11 @@ section .bss
 
 section .rdata
     finalize_dictionary kernel
+
+section .bss
+    bss_end:
+
+%ifdef compressed
+    section .rdata
+        dq bss_end - bss_start
+%endif

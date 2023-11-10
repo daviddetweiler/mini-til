@@ -2,3 +2,7 @@
 *.obj
 *.exe
 *.bin
+*.bw
+
+# Python Cache
+__pycache__/

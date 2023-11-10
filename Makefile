@@ -10,5 +10,10 @@ mini-til.obj: mini-til.asm
 mini-til.bin: mini-til.asm
     nasm mini-til.asm -fbin -o mini-til.bin -Dcompressed
 
+mini-til.bin.bw: mini-til.bin bitweaver.py
+    python .\bitweaver.py pack mini-til.bin mini-til.bin.bw
+
+bitweaver.py: ac.py
+
 report:
     python dead-code.py mini-til.asm
