@@ -327,7 +327,6 @@ section .text
         next
 
     ; a b -- a=b?
-    immediate
     primitive eq
         mov rax, [dp]
         mov rbx, [dp + 8]
@@ -338,6 +337,20 @@ section .text
         not rcx
 
         .neq:
+        mov [dp], rcx
+        next
+
+     ; a b -- a~=b?
+    primitive neq
+        mov rax, [dp]
+        mov rbx, [dp + 8]
+        add dp, 8
+        xor rcx, rcx
+        cmp rax, rbx
+        je .eq
+        not rcx
+
+        .eq:
         mov [dp], rcx
         next
 
@@ -393,6 +406,14 @@ section .text
         mov rax, [dp]
         add dp, 8
         sub [dp], rax
+        next
+
+    ; ptr -- new-ptr
+    primitive parse_consume_spaces
+        next
+
+    ; ptr -- new-ptr
+    primitive parse_consume_nonspaces
         next
 
 section .rdata
@@ -463,11 +484,12 @@ section .rdata
     variable input_end_ptr, 1
     constant input_buffer_size, config_input_buffer_size
 
-    ; --
-    ;
-    ; Signals EOF by setting input_end_ptr to input_buffer
-    procedure refill_input
+    ; -- eof?
+    procedure input_refill
         dq input_buffer
+        dq copy
+        dq input_read_ptr
+        dq store
         dq input_buffer_size
         dq stdin_handle
         dq load
@@ -481,10 +503,12 @@ section .rdata
         dq crash
 
         .success:
+        dq copy
         dq input_buffer
         dq add
         dq input_end_ptr
         dq store
+        dq eq_zero
         dq return
 
     ; value -- value
@@ -501,12 +525,46 @@ section .rdata
     ;
     ; Signals EOF by returning length 0
     procedure parse
-        dq refill_input
-        dq input_buffer
+        dq input_refill
+        branch_to .eof
+        dq parse_strip_spaces
         dq input_end_ptr
         dq load
         dq over
         dq sub
+        dq return
+
+        .eof:
+        dq zero
+        dq copy
+        dq return
+
+    ; -- after-spaces-ptr?
+    ;
+    ; Signals EOF by returning null
+    procedure parse_strip_spaces
+        .again:
+        dq input_read_ptr
+        dq load
+        dq parse_consume_spaces
+        dq input_end_ptr
+        dq load
+        dq over
+        dq neq
+        branch_to .no_refill
+        dq drop
+        dq input_refill
+        branch_to .eof
+        jump_to .again
+
+        .no_refill:
+        dq copy
+        dq input_read_ptr
+        dq store
+        dq return
+
+        .eof:
+        dq zero
         dq return
 
     variable parse_buffer, config_parse_buffer_size / 8
