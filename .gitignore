@@ -4,5 +4,8 @@
 *.bin
 *.bw
 
+# Generated Sources
+bitstream.inc
+
 # Python Cache
 __pycache__/

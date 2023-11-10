@@ -601,7 +601,7 @@ section .rdata
 
         da return
 
-    string banner, `Mini-TIL (c) 2023 David Detweiler\n\n`
+    string banner, `Mini (c) 2023 David Detweiler\n\n`
 
     ; ptr size --
     procedure print
