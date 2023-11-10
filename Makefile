@@ -1,7 +1,7 @@
 run: mini-til.exe
     .\mini-til.exe
 
-mini-til.exe: mini-til.obj report
+mini-til.exe: mini-til.obj
     link mini-til.obj kernel32.lib /entry:boot /subsystem:console
 
 mini-til.obj: mini-til.asm
@@ -15,5 +15,14 @@ mini-til.bin.bw: mini-til.bin bitweaver.py
 
 bitweaver.py: ac.py
 
+bitstream.inc: mini-til.bin.bw inc.py
+    python .\inc.py mini-til.bin.bw bitstream.inc
+
+loader.obj: loader.asm bitstream.inc
+    nasm loader.asm -fwin64
+
+loader.exe: loader.obj
+    link loader.obj kernel32.lib /entry:start /subsystem:console /fixed
+
 report:
-    python dead-code.py mini-til.asm
+    python .\dead-code.py mini-til.asm

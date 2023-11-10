@@ -26,7 +26,31 @@ global boot
         call [%1]
     %endmacro
 
+    %macro name 2
+        name_ %+ %1:
+            db %2, 0
+    %endmacro
+
+    %macro import 1
+        mov rcx, rsi
+        lea rdx, name_ %+ %1
+        call rdi
+        mov [%1], rax
+    %endmacro
+
     %macro prologue 0
+        mov rsi, rcx
+        mov rdi, rdx
+
+        lea rcx, name_kernel32
+        call rsi
+
+        mov rsi, rax
+        import ExitProcess
+        import GetStdHandle
+        import WriteFile
+        import ReadFile
+        import GetLastError
     %endmacro
 %endif
 
@@ -179,13 +203,13 @@ global boot
 
 %macro jump_to 1
     da jump_impl
-    da %1 - %%following
+    dq %1 - %%following
     %%following:
 %endmacro
 
 %macro branch_to 1
     da branch_impl
-    da %1 - %%following
+    dq %1 - %%following
     %%following:
 %endmacro
 
@@ -209,7 +233,7 @@ section .text
 
     ; --
     primitive set_rstack
-        mov rp, stack_base(rstack)
+        lea rp, stack_base(rstack)
         next
 
     ; --
@@ -227,7 +251,7 @@ section .text
 
     ; --
     primitive set_dstack
-        mov dp, stack_base(dstack)
+        lea dp, stack_base(dstack)
         next
 
     ; -- value
@@ -692,6 +716,15 @@ section .rdata
     variable parse_buffer, config_parse_buffer_size / 8
     variable parse_word_length, 1
     variable parse_write_ptr, 1
+
+    %ifdef compressed
+        name kernel32, "kernel32.dll"
+        name ExitProcess, "ExitProcess"
+        name GetStdHandle, "GetStdHandle"
+        name WriteFile, "WriteFile"
+        name ReadFile, "ReadFile"
+        name GetLastError, "GetLastError"
+    %endif
 
 section .bss
     rstack:
