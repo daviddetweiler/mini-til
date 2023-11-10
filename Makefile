@@ -22,7 +22,14 @@ loader.obj: loader.asm bitstream.inc
     nasm loader.asm -fwin64
 
 mini.exe: loader.obj
-    link loader.obj kernel32.lib /entry:start /subsystem:console /fixed /out:mini.exe
+    link loader.obj kernel32.lib \
+        /entry:start \
+        /subsystem:console \
+        /fixed \
+        /out:mini.exe \
+        /ignore:4254 \
+        /merge:.rdata=kernel \
+        /merge:.text=kernel
 
 report:
     python .\dead-code.py mini.asm
