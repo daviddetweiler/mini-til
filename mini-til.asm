@@ -625,20 +625,11 @@ section .rdata
         dq input_read_ptr
         dq load
         dq parse_consume_spaces
-        dq input_end_ptr
-        dq load
-        dq over
-        dq neq
-        branch_to .no_refill
-        dq drop
-        dq input_refill
+        dq input_update
         branch_to .eof
-        jump_to .again
-
-        .no_refill:
-        dq copy
+        branch_to .again
         dq input_read_ptr
-        dq store
+        dq load
         dq return
 
         .eof:
@@ -647,12 +638,14 @@ section .rdata
 
     ; read-ptr -- fresh-input? eof?
     procedure input_update
+        dq copy
+        dq input_read_ptr
+        dq store
         dq input_end_ptr
         dq load
-        dq over
-        dq neq
+        dq eq
         dq copy
-        either_or zero, input_refill
+        either_or input_refill, zero
         dq return
 
     variable parse_buffer, config_parse_buffer_size / 8
