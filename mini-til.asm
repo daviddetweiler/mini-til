@@ -3,11 +3,13 @@ bits 64
 
 global boot
 
-extern ExitProcess
-extern GetStdHandle
-extern WriteFile
-extern ReadFile
-extern GetLastError
+%ifndef compressed
+    extern ExitProcess
+    extern GetStdHandle
+    extern WriteFile
+    extern ReadFile
+    extern GetLastError
+%endif
 
 %define tp r15
 %define wp r14
@@ -667,6 +669,23 @@ section .bss
 
     dstack:
         resq stack_depth
+
+    %ifdef compressed
+        ExitProcess:
+            resq 1
+        
+        GetStdHandle:
+            resq 1
+
+        WriteFile:
+            resq 1
+
+        ReadFile:
+            resq 1
+
+        GetLastError:
+            resq 1
+    %endif
 
 section .rdata
     finalize_dictionary kernel
