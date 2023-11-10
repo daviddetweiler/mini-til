@@ -85,8 +85,17 @@ extern GetLastError
     __?SECT?__
 %endmacro
 
+%macro shared 1
+    section .rdata
+        constant shared_ %+ %1, %1
+
+    section .text
+        align 16
+        %1:
+%endmacro
+
 %macro primitive 1
-    ; x86 prefers 16-byte aligned jump targets
+    ; x86 prefers 16-byte aligned jump_impl targets
     align 16
     code_field %1, %%code
         %%code:
@@ -137,13 +146,13 @@ extern GetLastError
 %endmacro
 
 %macro jump_to 1
-    dq jump
+    dq jump_impl
     dq %1 - %%following
     %%following:
 %endmacro
 
 %macro branch_to 1
-    dq branch
+    dq branch_impl
     dq %1 - %%following
     %%following:
 %endmacro
@@ -169,7 +178,7 @@ section .text
         next
 
     ; --
-    impl_procedure:
+    shared impl_procedure
         sub rp, 8
         mov [rp], tp
         lea tp, [wp + 8]
@@ -200,7 +209,7 @@ section .text
         call ExitProcess
 
     ; -- constant
-    impl_constant:
+    shared impl_constant
         mov rax, [wp + 8]
         sub dp, 8
         mov [dp], rax
@@ -262,7 +271,7 @@ section .text
         int 0x29 ; fast_fail_fatal_app_exit
 
     ; -- ptr size
-    impl_string:
+    shared impl_string
         movzx rax, byte [wp + 8]
         lea rbx, [wp + 9]
         sub dp, 8 * 2
@@ -314,7 +323,7 @@ section .text
         next
 
     ; value --
-    primitive branch
+    primitive branch_impl
         mov rax, [dp]
         add dp, 8
         mov rbx, [tp]
@@ -327,7 +336,7 @@ section .text
         next
 
     ; --
-    primitive jump
+    primitive jump_impl
         mov rax, [tp]
         lea tp, [tp + rax + 8]
         next

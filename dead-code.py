@@ -14,6 +14,7 @@ if __name__ == '__main__':
         code = f.read()
 
     definitions = [match.group(2) for match in DEFINITION.finditer(code)]
+    definitions = [d for d in definitions if d[-1] != '_']
     occurrences = {definition: len(list(re.finditer(definition, code))) for definition in definitions}
     print("Unreachable:")
     for definition, count in occurrences.items():
