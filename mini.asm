@@ -508,6 +508,23 @@ section .text
 
     ; ptr -- new-ptr
     primitive parse_consume_nonspaces
+        mov rax, [dp]
+        
+        .next_char:
+        movzx rbx, byte [rax]
+        cmp rbx, ` `
+        je .exit
+        cmp rbx, `\t`
+        je .exit
+        cmp rbx, `\n`
+        je .exit
+        cmp rbx, `\r`
+        je .exit
+        add rax, 1
+        jmp .next_char
+
+        .exit:
+        mov [dp], rax
         next
 
     ; byte ptr --
@@ -653,12 +670,13 @@ section .rdata
         da store
         
         da parse_strip_spaces
-        da copy
-        da eq_zero
         branch_to .eof
 
-        da input_end_ptr
+        da input_read_ptr
         da load
+        da copy
+        da parse_consume_nonspaces
+
         da over
         da sub
         da return
@@ -668,9 +686,7 @@ section .rdata
         da copy
         da return
 
-    ; -- after-spaces-ptr?
-    ;
-    ; Signals EOF by returning null
+    ; -- eof?
     procedure parse_strip_spaces
         .again:
         da input_read_ptr
@@ -679,13 +695,14 @@ section .rdata
         da input_update
         branch_to .eof
         branch_to .again
-        da input_read_ptr
-        da load
+        da zero
         da return
 
         .eof:
-        da zero
+        da all_ones
         da return
+
+    constant all_ones, ~0
 
     ; read-ptr -- fresh-input? eof?
     procedure input_update
