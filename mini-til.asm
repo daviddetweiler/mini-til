@@ -132,7 +132,7 @@ extern GetLastError
 %endmacro
 
 %macro maybe 1
-    dq maybe_execute
+    dq maybe_impl
     dq %1
 %endmacro
 
@@ -146,6 +146,12 @@ extern GetLastError
     dq branch
     dq %1 - %%following
     %%following:
+%endmacro
+
+%macro either_or 2
+    dq either_or_impl
+    dq %1
+    dq %2
 %endmacro
 
 %define config_input_buffer_size 4096
@@ -297,7 +303,7 @@ section .text
         next
 
     ; value --
-    primitive maybe_execute
+    primitive maybe_impl
         mov rax, [dp]
         add dp, 8
         test rax, rax
@@ -434,11 +440,6 @@ section .text
     primitive parse_consume_nonspaces
         next
 
-    ; --
-    primitive break
-        int3
-        next
-
     ; byte ptr --
     primitive store_byte
         mov rax, [dp]
@@ -453,6 +454,26 @@ section .text
         movzx rbx, byte [rax]
         mov [dp], rbx
         next
+
+    ; a b -- a b a b
+    primitive copy_pair
+        mov rax, [dp + 8]
+        mov rbx, [dp]
+        sub dp, 8 * 2
+        mov [dp + 8], rax
+        mov [dp], rbx
+        next
+
+    ; condition --
+    primitive either_or_impl
+        mov rax, [dp]
+        mov rbx, [tp]
+        mov rcx, [tp + 8]
+        add tp, 8 * 2
+        test rax, rax
+        cmovz rbx, rcx
+        mov wp, rbx
+        run
 
 section .rdata
     align 8
@@ -503,6 +524,13 @@ section .rdata
         dq get_std_handle
         dq assert
         dq stdout_handle
+        dq store
+
+        dq input_buffer
+        dq copy
+        dq input_end_ptr
+        dq store
+        dq input_read_ptr
         dq store
 
         dq return
@@ -568,10 +596,16 @@ section .rdata
     procedure parse
         dq input_refill
         branch_to .eof
+
+        dq parse_buffer
+        dq parse_write_ptr
+        dq store
+        
         dq parse_strip_spaces
         dq copy
         dq eq_zero
         branch_to .eof
+
         dq input_end_ptr
         dq load
         dq over
@@ -611,7 +645,19 @@ section .rdata
         dq zero
         dq return
 
+    ; read-ptr -- fresh-input? eof?
+    procedure input_update
+        dq input_end_ptr
+        dq load
+        dq over
+        dq neq
+        dq copy
+        either_or zero, input_refill
+        dq return
+
     variable parse_buffer, config_parse_buffer_size / 8
+    variable parse_word_length, 1
+    variable parse_write_ptr, 1
 
 section .bss
     rstack:
