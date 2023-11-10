@@ -149,6 +149,7 @@ extern GetLastError
 %endmacro
 
 %define config_input_buffer_size 4096
+%define config_parse_buffer_size 32
 
 section .text
     boot:
@@ -332,7 +333,7 @@ section .text
         mov rbx, [dp + 8]
         add dp, 8
         xor rcx, rcx
-        test rax, rbx
+        cmp rax, rbx
         jne .neq
         not rcx
 
@@ -373,6 +374,27 @@ section .text
         mov [dp], rax
         next
 
+    ; a b -- a b a
+    primitive over
+        mov rax, [dp + 8]
+        sub dp, 8
+        mov [dp], rax
+        next
+
+    ; a b -- a+b
+    primitive add
+        mov rax, [dp]
+        add dp, 8
+        add [dp], rax
+        next
+
+    ; a b -- a-b
+    primitive sub
+        mov rax, [dp]
+        add dp, 8
+        sub [dp], rax
+        next
+
 section .rdata
     align 8
     program:
@@ -380,14 +402,10 @@ section .rdata
         dq initialize
 
         .next_input:
-        dq refill_input
-        dq input_valid_bytes
-        dq load
+        dq parse
+        dq copy
         dq eq_zero
         maybe exit
-        dq input_buffer
-        dq input_valid_bytes
-        dq load
         dq print
         jump_to .next_input
 
@@ -406,8 +424,7 @@ section .rdata
 
     ; --
     procedure exit
-        dq literal
-        dq 0
+        dq zero
         dq exit_process
 
     variable stdin_handle, 1
@@ -443,12 +460,12 @@ section .rdata
         dq return
 
     variable input_buffer, (config_input_buffer_size / 8) + 1
-    variable input_valid_bytes, 1
+    variable input_end_ptr, 1
     constant input_buffer_size, config_input_buffer_size
 
     ; --
     ;
-    ; Signals EOF by setting input_valid_bytes to 0
+    ; Signals EOF by setting input_end_ptr to input_buffer
     procedure refill_input
         dq input_buffer
         dq input_buffer_size
@@ -464,7 +481,9 @@ section .rdata
         dq crash
 
         .success:
-        dq input_valid_bytes
+        dq input_buffer
+        dq add
+        dq input_end_ptr
         dq store
         dq return
 
@@ -474,6 +493,23 @@ section .rdata
         dq eq_zero
         maybe crash
         dq return
+
+    constant zero, 0
+    variable input_read_ptr, 1
+
+    ; -- string length?
+    ;
+    ; Signals EOF by returning length 0
+    procedure parse
+        dq refill_input
+        dq input_buffer
+        dq input_end_ptr
+        dq load
+        dq over
+        dq sub
+        dq return
+
+    variable parse_buffer, config_parse_buffer_size / 8
 
 section .bss
     rstack:
