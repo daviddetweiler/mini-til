@@ -1,16 +1,7 @@
 import sys
 import ac
 
-HV_CONFIG = {
-    "control": ac.HowardVitterModel,
-    "literal": ac.HowardVitterTreeModel,
-    "offset": ac.HowardVitterTreeModel,
-    "length": ac.HowardVitterTreeModel,
-    "alt_offset": ac.HowardVitterTreeModel,
-    "alt_length": ac.HowardVitterTreeModel,
-}
-
-DEFAULT_CONFIG = {
+CONFIG = {
     "control": ac.AdaptiveMarkovModel,
     "literal": ac.GlobalAdaptiveModel,
     "offset": ac.GlobalAdaptiveModel,
@@ -18,13 +9,6 @@ DEFAULT_CONFIG = {
     "alt_offset": ac.GlobalAdaptiveModel,
     "alt_length": ac.GlobalAdaptiveModel,
 }
-
-CONFIGS = {
-    "hv": HV_CONFIG,
-    "default": DEFAULT_CONFIG,
-}
-
-CONFIG = CONFIGS["default"]
 
 
 def encode_15bit(n: int) -> bytes:

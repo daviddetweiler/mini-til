@@ -518,22 +518,6 @@ section .text
         mov [rax], bl
         next
 
-    ; ptr -- byte
-    primitive load_byte
-        mov rax, [dp]
-        movzx rbx, byte [rax]
-        mov [dp], rbx
-        next
-
-    ; a b -- a b a b
-    primitive copy_pair
-        mov rax, [dp + 8]
-        mov rbx, [dp]
-        sub dp, 8 * 2
-        mov [dp + 8], rax
-        mov [dp], rbx
-        next
-
     ; condition --
     primitive either_or_impl
         mov rax, [dp]
