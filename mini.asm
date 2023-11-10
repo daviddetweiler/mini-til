@@ -764,5 +764,6 @@ section .bss
 
 %ifdef compressed
     section .rdata
+        align 8
         dq bss_end - bss_start
 %endif

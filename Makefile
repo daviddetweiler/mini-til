@@ -34,3 +34,6 @@ mini.exe: loader.obj
 
 report:
     python .\dead-code.py mini.asm
+
+clean:
+    del *.obj *.exe *.bw *.inc *.bin
