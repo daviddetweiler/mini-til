@@ -9,6 +9,7 @@ global boot
     extern WriteFile
     extern ReadFile
     extern GetLastError
+    extern VirtualAlloc
 
     %define base_address 0
 
@@ -51,6 +52,7 @@ global boot
         import WriteFile
         import ReadFile
         import GetLastError
+        import VirtualAlloc
     %endmacro
 %endif
 
@@ -724,6 +726,7 @@ section .rdata
         name WriteFile, "WriteFile"
         name ReadFile, "ReadFile"
         name GetLastError, "GetLastError"
+        name VirtualAlloc, "VirtualAlloc"
     %endif
 
 section .bss
@@ -747,6 +750,9 @@ section .bss
             resq 1
 
         GetLastError:
+            resq 1
+
+        VirtualAlloc:
             resq 1
     %endif
 

@@ -29,7 +29,8 @@ mini.exe: loader.obj
         /out:mini.exe \
         /ignore:4254 \
         /merge:.rdata=kernel \
-        /merge:.text=kernel
+        /merge:.text=kernel \
+        /section:kernel,RE
 
 report:
     python .\dead-code.py mini.asm
