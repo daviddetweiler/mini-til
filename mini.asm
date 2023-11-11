@@ -5,7 +5,7 @@ global boot
 
 %define base_address 0x2000000000
 
-%macro call_import 1
+%macro cimport 1
     call [%1]
 %endmacro
 
@@ -197,6 +197,8 @@ section .text
     boot:
         mov rsi, rcx
         mov rdi, rdx
+        mov [GetModuleHandleA], rsi
+        mov [GetProcAddress], rdi
 
         lea rcx, name_kernel32
         call rsi
@@ -245,7 +247,7 @@ section .text
     ; code --
     primitive exit_process
         mov rcx, [dp]
-        call_import ExitProcess
+        cimport ExitProcess
 
     ; -- constant
     raw impl_constant
@@ -272,7 +274,7 @@ section .text
     ; id -- handle?
     primitive get_std_handle
         mov rcx, [dp]
-        call_import GetStdHandle
+        cimport GetStdHandle
         cmp rax, -1
         je .invalid
         test rax, rax
@@ -293,7 +295,7 @@ section .text
         lea r9, [rsp + 8 * 5]
         xor rax, rax
         mov [rsp + 8 * 4], rax
-        call_import WriteFile
+        cimport WriteFile
         add dp, 8 * 2
         mov [dp], rax
         next
@@ -331,7 +333,7 @@ section .text
         lea r9, [rsp + 8 * 5]
         xor rax, rax
         mov [rsp + 8 * 4], rax
-        call_import ReadFile
+        cimport ReadFile
         add dp, 8
         mov [dp], rax
         mov rax, [rsp + 8 * 5]
@@ -368,10 +370,10 @@ section .text
         mov rbx, [tp]
         add tp, 8
         test rax, rax
-        jz .zero
+        jz .zeroes
         add tp, rbx
 
-        .zero:
+        .zeroes:
         next
 
     ; --
@@ -410,7 +412,7 @@ section .text
 
     ; -- last-error
     primitive get_last_error
-        call_import GetLastError
+        cimport GetLastError
         sub dp, 8
         mov [dp], rax
         next
@@ -434,10 +436,10 @@ section .text
         movzx rbx, byte [rax]
         xor rax, rax
         test rbx, 0x80
-        jz .zero
+        jz .zeroes
         not rax
 
-        .zero:
+        .zeroes:
         mov [dp], rax
         next
 
@@ -647,7 +649,7 @@ section .rdata
         branch_to .exit
         da parser_word
         da copy
-        da all_ones
+        da ones
         da neq
         branch_to .good
         da drop
@@ -683,7 +685,7 @@ section .rdata
         jump_to .next_input
 
         .exit:
-        da zero
+        da zeroes
         da exit_process
 
     ; --
@@ -694,7 +696,7 @@ section .rdata
         da dictionary
         da store
         da arena
-        da zero
+        da zeroes
         da is_assembling
         da store
         da arena_top
@@ -724,7 +726,7 @@ section .rdata
 
         da return
 
-    string banner, `Mini (c) 2023 David Detweiler\nType \`walk\` for an instruction list\n\n`
+    string banner, `Mini (c) 2023 David Detweiler\n\n`
 
     ; ptr size --
     procedure print
@@ -760,7 +762,7 @@ section .rdata
         da copy
         da input_buffer
         da add
-        da zero
+        da zeroes
         da over
         da store_byte
         da input_end_ptr
@@ -775,7 +777,7 @@ section .rdata
         maybe crash
         da return
 
-    constant zero, 0
+    constant zeroes, 0
     variable input_read_ptr, 1
 
     ; -- eof?
@@ -784,17 +786,17 @@ section .rdata
         da parser_write_ptr
         da store
 
-        da parser_strip_spaces
+        da parser_strip
         branch_to .eof
 
         da parser_ingest_word
         branch_to .eof
 
-        da zero
+        da zeroes
         da return
 
         .eof:
-        da all_ones
+        da ones
         da return
 
     ; string length --
@@ -831,12 +833,12 @@ section .rdata
         branch_to .eof
         branch_to .again
 
-        da zero
+        da zeroes
         da return
 
         .eof:
         da drop
-        da all_ones
+        da ones
         da return
 
         .too_long:
@@ -849,12 +851,12 @@ section .rdata
         da sub
         da parser_write_ptr
         da store
-        da zero
+        da zeroes
         da return
 
     ; length -- too-long?
     procedure parser_allocate
-        da parser_buffer_occupied
+        da parser_usage
         da add
         da parser_buffer_size
         da gt
@@ -870,7 +872,7 @@ section .rdata
         da return
 
     ; -- occupied-bytes
-    procedure parser_buffer_occupied
+    procedure parser_usage
         da parser_write_ptr
         da load
         da parser_buffer
@@ -878,7 +880,7 @@ section .rdata
         da return
 
     ; -- eof?
-    procedure parser_strip_spaces
+    procedure parser_strip
         .again:
         da input_read_ptr
         da load
@@ -886,15 +888,15 @@ section .rdata
         da input_update
         branch_to .eof
         branch_to .again
-        da zero
+        da zeroes
         da return
 
         .eof:
         da drop
-        da all_ones
+        da ones
         da return
 
-    constant all_ones, ~0
+    constant ones, ~0
 
     ; read-ptr -- fresh-input? eof?
     procedure input_update
@@ -905,7 +907,7 @@ section .rdata
         da load
         da eq
         da copy
-        select input_refill, zero
+        select input_refill, zeroes
         da return
 
     variable parser_buffer, config_parser_buffer_size / 8
@@ -954,7 +956,7 @@ section .rdata
 
     ; --
     procedure begin
-        da all_ones
+        da ones
         da is_assembling
         da store
         da return
@@ -962,7 +964,7 @@ section .rdata
     ; --
     immediate
     procedure end
-        da zero
+        da zeroes
         da is_assembling
         da store
         da return
@@ -981,30 +983,8 @@ section .rdata
         da store
         da return
 
-    ; --
-    procedure walk
-        da dictionary
-        da load
-        
-        .next:
-        da copy
-        da entry_name
-        da print
-
-        da copy
-        da entry_is_immediate
-        select msg_immediate, msg_none
-        da print
-
-        da load
-        da copy
-        branch_to .next
-
-        da drop
-        da return
-
-    string msg_immediate, ` (immediate)\n`
-    string msg_none, `\n`
+    constant ptr_get_proc_address, address(GetProcAddress)
+    constant ptr_get_module_handle, address(GetModuleHandleA)
 
 section .bss
     rstack:
@@ -1012,6 +992,12 @@ section .bss
 
     dstack:
         resq stack_depth
+
+    GetProcAddress:
+        resq 1
+
+    GetModuleHandleA:
+        resq 1
 
     ExitProcess:
         resq 1

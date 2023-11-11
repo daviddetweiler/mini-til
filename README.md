@@ -1,13 +1,8 @@
-# `mini-til`
+# `mini`
 
-The aim of this project is to produce a "minimalist" threaded interpretive language for Windows. A TIL must have at
-least:
-- A textual interpreter with an assembly mode
-- `dictionary`, `entry_data`, `entry_immediate`, `entry_name` (dictionary manipulation)
-- An assortment of stack primitives (`+`, `-`, `-#`, `&`, `|`, `~`, etc.)
-- `]`, `[` `assembly_ptr`, `assembly_base`, `assembly_cap`, `assemble`, `assemble_string` (thread assembler)
-- `print`, `print_line`, `new_line` (text output, though optional)
-- FFI: `GetProcAddress` / `GetModuleHandle`
-
-Essentially, to provide the minimal necessary environment to bootstrap to a much nicer interpreter written in the TIL
-itself (one more akin to [Silicon](https://github.com/daviddetweiler/silicon)).
+`mini` is a "complete" Forth-like language in a single 4096-byte Windows executable. See `example.txt` for a quick
+example. In many ways it resembles a kind of macro assembler, a step just below a fully-featured Forth (_c.f._
+[Silicon](https://github.com/daviddetweiler/silicon)), including requiring that all numerical constants be built up from
+the built-in `zeroes` and `ones`. New primitive words can be defined circuitously through `arena_top`, `store_byte`,
+and `ptr_get_proc_address`/`ptr_get_module_handle`, and everything else is achievable through its minimalist memory
+management and assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context.
