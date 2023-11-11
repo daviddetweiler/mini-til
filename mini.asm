@@ -538,6 +538,7 @@ section .text
     ; condition --
     primitive either_or_impl
         mov rax, [dp]
+        add dp, 8
         mov rbx, [tp]
         mov rcx, [tp + 8]
         add tp, 8 * 2
@@ -545,6 +546,17 @@ section .text
         cmovz rbx, rcx
         mov wp, rbx
         run
+
+    ; -- magic
+    primitive magic
+        lea rax, address(stack_base(dstack))
+        lea rbx, address(stack_base(rstack))
+        sub rax, dp
+        sub rbx, rp
+        or rax, rbx
+        sub dp, 8
+        mov [dp], rax
+        next
 
 section .rdata
     align 8
@@ -556,9 +568,15 @@ section .rdata
         da parse
         da copy
         da eq_zero
-        maybe exit
+        branch_to .exit
         da print
         jump_to .next_input
+
+        .exit:
+        da drop
+        da drop
+        da magic
+        da exit_process
 
     ; --
     procedure initialize
@@ -572,11 +590,6 @@ section .rdata
         da return
 
     variable dictionary, 1
-
-    ; --
-    procedure exit
-        da zero
-        da exit_process
 
     variable stdin_handle, 1
     variable stdout_handle, 1
@@ -699,6 +712,7 @@ section .rdata
         da return
 
         .eof:
+        da drop
         da all_ones
         da return
 
