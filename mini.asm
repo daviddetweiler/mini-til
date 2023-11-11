@@ -527,17 +527,6 @@ section .text
         mov wp, rbx
         run
 
-    ; -- magic
-    primitive magic
-        lea rax, address(stack_base(dstack))
-        lea rbx, address(stack_base(rstack))
-        sub rax, dp
-        sub rbx, rp
-        or rax, rbx
-        sub dp, 8
-        mov [dp], rax
-        next
-
     ; a b -- a>b
     primitive gt
         mov rax, [dp + 8]
@@ -567,11 +556,6 @@ section .text
         mov rbx, [dp + 8]
         mov [dp], rbx
         mov [dp + 8], rax
-        next
-
-    ; --
-    primitive break
-        int3
         next
 
     ; -- top
@@ -699,7 +683,7 @@ section .rdata
         jump_to .next_input
 
         .exit:
-        da magic
+        da zero
         da exit_process
 
     ; --
@@ -737,7 +721,7 @@ section .rdata
 
         da return
 
-    string banner, `Mini (c) 2023 David Detweiler\n\n`
+    string banner, `Mini (c) 2023 David Detweiler\nType \`walk\` for an instruction list\n\n`
 
     ; ptr size --
     procedure print
@@ -993,6 +977,31 @@ section .rdata
         da swap
         da store
         da return
+
+    ; --
+    procedure walk
+        da dictionary
+        da load
+        
+        .next:
+        da copy
+        da entry_name
+        da print
+
+        da copy
+        da entry_is_immediate
+        either_or msg_immediate, msg_none
+        da print
+
+        da load
+        da copy
+        branch_to .next
+
+        da drop
+        da return
+
+    string msg_immediate, ` (immediate)\n`
+    string msg_none, `\n`
 
 section .bss
     rstack:

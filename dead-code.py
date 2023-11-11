@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     definitions = [match.group(2) for match in DEFINITION.finditer(code)]
     definitions = [d for d in definitions if d[-1] != '_']
-    occurrences = {definition: len(list(re.finditer(definition, code))) for definition in definitions}
+    occurrences = {definition: len(list(re.finditer(r"\s" + definition + r"[\s,]", code))) for definition in definitions}
     print("Unreachable:")
     for definition, count in occurrences.items():
         assert count > 0
