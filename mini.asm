@@ -186,8 +186,8 @@ global boot
     da %2
 %endmacro
 
-%define config_input_buffer_size 8
-%define config_parser_buffer_size 32
+%define config_input_buffer_size 4096
+%define config_parser_buffer_size 128
 
 section .bss
     bss_start:
@@ -715,15 +715,8 @@ section .rdata
         da all_ones
         da return
 
-    ; string length -- too-long?
+    ; string length --
     procedure parser_move_string
-        da copy
-        da parser_buffer_occupied
-        da add
-        da parser_buffer_size
-        da gt
-        branch_to .too_long
-
         da parser_write_ptr
         da load
         da over
@@ -733,13 +726,6 @@ section .rdata
         da store
 
         da string_copy
-        da zero
-        da return
-
-        .too_long:
-        da drop
-        da drop
-        da all_ones
         da return
 
     ; -- eof?
@@ -752,8 +738,10 @@ section .rdata
         da over
         da over
         da string_from_range
-        da parser_move_string
+        da copy
+        da parser_allocate
         branch_to .too_long
+        da parser_move_string
         da swap
         da drop
         da input_update
@@ -771,10 +759,22 @@ section .rdata
         .too_long:
         da drop
         da drop
-        da all_ones
-        da parser_word_length
+        da drop
+        da drop
+        da parser_buffer
+        literal 1
+        da sub
+        da parser_write_ptr
         da store
         da zero
+        da return
+
+    ; length -- too-long?
+    procedure parser_allocate
+        da parser_buffer_occupied
+        da add
+        da parser_buffer_size
+        da gt
         da return
 
     ; -- string length
@@ -826,7 +826,6 @@ section .rdata
 
     variable parser_buffer, config_parser_buffer_size / 8
     constant parser_buffer_size, config_parser_buffer_size
-    variable parser_word_length, 1
     variable parser_write_ptr, 1
 
     name kernel32, "kernel32.dll"
