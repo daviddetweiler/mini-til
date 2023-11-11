@@ -665,17 +665,11 @@ section .rdata
         jump_to .next_input
 
         .number:
-        da push
-        da drop
-        da drop
-        da pop
         da is_assembling
         da load
         da not
         branch_to .next_input
-
-        .assemble:
-        literal literal_impl
+        literal address(literal_impl)
         da assemble
         da assemble
         jump_to .next_input
