@@ -163,11 +163,6 @@ global boot
     dq %1
 %endmacro
 
-%macro maybe 1
-    da maybe_impl
-    da %1
-%endmacro
-
 %macro jump_to 1
     da jump_impl
     dq %1 - %%following
@@ -178,12 +173,6 @@ global boot
     da branch_impl
     dq %1 - %%following
     %%following:
-%endmacro
-
-%macro select 2
-    da select_impl
-    da %1
-    da %2
 %endmacro
 
 %define config_input_buffer_size 4096
@@ -353,17 +342,6 @@ section .text
         next
 
     ; value --
-    primitive maybe_impl
-        mov rax, [dp]
-        add dp, 8
-        test rax, rax
-        jnz .nzero
-        add tp, 8
-
-        .nzero:
-        next
-
-    ; value --
     primitive branch_impl
         mov rax, [dp]
         add dp, 8
@@ -517,18 +495,6 @@ section .text
         mov [rax], bl
         next
 
-    ; condition --
-    primitive select_impl
-        mov rax, [dp]
-        add dp, 8
-        mov rbx, [tp]
-        mov rcx, [tp + 8]
-        add tp, 8 * 2
-        test rax, rax
-        cmovz rbx, rcx
-        mov wp, rbx
-        run
-
     ; a b -- a>b
     primitive gt
         mov rax, [dp + 8]
@@ -681,7 +647,12 @@ section .rdata
         da load
         da not
         da or
-        select invoke, assemble
+        branch_to .invoke
+        da assemble
+        jump_to .next_input
+
+        .invoke:
+        da invoke
         jump_to .next_input
 
         .exit:
@@ -774,7 +745,11 @@ section .rdata
     procedure assert
         da copy
         da eq_zero
-        maybe crash
+        da not
+        branch_to .ok
+        da crash
+
+        .ok:
         da return
 
     constant zeroes, 0
@@ -907,7 +882,12 @@ section .rdata
         da load
         da eq
         da copy
-        select input_refill, zeroes
+        branch_to .refill
+        da zeroes
+        da return
+
+        .refill:
+        da input_refill
         da return
 
     variable parser_buffer, config_parser_buffer_size / 8
@@ -978,6 +958,20 @@ section .rdata
         da copy
         da load
         literal 8
+        da add
+        da swap
+        da store
+        da return
+
+    ; value --
+    procedure assemble_byte
+        da arena_top
+        da load
+        da store_byte
+        da arena_top
+        da copy
+        da load
+        literal 1
         da add
         da swap
         da store
