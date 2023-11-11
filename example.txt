@@ -1,5 +1,10 @@
-flush This is a short example
+flush This is a short example of using the barebones `mini` wordset to create and use a new function
 
-arena_top load
-raw_impl_procedure assemble begin banner print return end
-invoke
+here load               flush Gets the current asselmbly pointer
+impl_procedure assemble flush Assembles in a pointer to the shared procedure machine code fragment
+begin                   flush Begins assembling
+    banner              flush This is the startup banner used by the interpreter
+    print
+    return              flush An explicit return is needed
+end                     flush Exit the assembler
+invoke                  flush Invoke the pointer left on the stack

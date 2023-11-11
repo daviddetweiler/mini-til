@@ -59,7 +59,7 @@ global boot
     %push
 
     %if dict_finalized
-        %error "dictionary already finalized"
+        %error "dict already finalized"
     %endif
 
     %defstr %$name %1
@@ -103,13 +103,13 @@ global boot
     __?SECT?__
 %endmacro
 
-%macro raw 1
+%macro impl 1
     section .rdata
-        constant raw_ %+ %1, address(%1)
+        constant impl_ %+ %1, address(ptr_ %+ %1)
 
     section .text
         align 16
-        %1:
+        ptr_ %+ %1:
 %endmacro
 
 %macro primitive 1
@@ -121,7 +121,7 @@ global boot
 
 %macro procedure 1
     align 8
-    code_field %1, impl_procedure
+    code_field %1, ptr_procedure
 %endmacro
 
 %macro string 2
@@ -132,7 +132,7 @@ global boot
         %error "string too long"
     %endif
 
-    code_field %1, impl_string
+    code_field %1, ptr_string
         db %$length, %2, 0
 
     %pop
@@ -140,7 +140,7 @@ global boot
 
 %macro constant 2
     align 8
-    code_field %1, impl_constant
+    code_field %1, ptr_constant
         dq %2
 %endmacro
 
@@ -175,7 +175,7 @@ global boot
     %%following:
 %endmacro
 
-%define config_input_buffer_size 4096
+%define config_input_buf_size 4096
 %define config_parser_buffer_size 128
 %define config_arena_size (1 << 16) - 1
 
@@ -208,7 +208,7 @@ section .text
         next
 
     ; --
-    raw impl_procedure
+    impl procedure
         sub rp, 8
         mov [rp], tp
         lea tp, [wp + 8]
@@ -239,7 +239,7 @@ section .text
         cimport ExitProcess
 
     ; -- constant
-    raw impl_constant
+    impl constant
         mov rax, [wp + 8]
         sub dp, 8
         mov [dp], rax
@@ -301,7 +301,7 @@ section .text
         int 0x29 ; fast_fail_fatal_app_exit
 
     ; -- ptr size
-    raw impl_string
+    impl string
         movzx rax, byte [wp + 8]
         lea rbx, [wp + 9]
         sub dp, 8 * 2
@@ -394,7 +394,7 @@ section .text
         next
 
     ; entry-ptr -- entry-is-immediate?
-    primitive entry_is_immediate
+    primitive entry_imm
         mov rax, [dp]
         add rax, 8
         movzx rbx, byte [rax]
@@ -611,7 +611,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parse_line
+    primitive parser_line
         mov rax, [dp]
 
         .next_char:
@@ -629,7 +629,8 @@ section .rdata
     align 8
     program:
         da set_rstack
-        da initialize
+        da set_dstack
+        da init
         da input_refill
         branch_to .exit
 
@@ -644,7 +645,7 @@ section .rdata
         branch_to .good
         da drop
         da drop
-        da msg_too_long
+        da msg_tok
         da print
         jump_to program
 
@@ -659,19 +660,19 @@ section .rdata
         da drop
         da parser_word
         da print
-        da msg_not_found
+        da msg_find
         da print
         jump_to program
 
         .found:
         da copy
-        da entry_is_immediate
+        da entry_imm
         da swap
         da entry_name
         da add
         da cell_align
         da swap
-        da is_assembling
+        da mode
         da load
         da not
         da or
@@ -680,7 +681,7 @@ section .rdata
         jump_to .next_input
 
         .number:
-        da is_assembling
+        da mode
         da load
         da not
         branch_to .next_input
@@ -697,11 +698,12 @@ section .rdata
         da zeroes
         da exit_process
 
+    immediate
     procedure flush
         .again:
         da input_read_ptr
         da load
-        da parse_line
+        da parser_line
         da input_update
         branch_to .eof
         branch_to .again
@@ -712,39 +714,38 @@ section .rdata
         da return
 
     ; --
-    procedure initialize
-        da set_dstack
+    procedure init
         da init_io
         da kernel
-        da dictionary
+        da dict
         da store
         da arena
         da zeroes
-        da is_assembling
+        da mode
         da store
-        da arena_top
+        da here
         da store
         da banner
         da print
         da return
 
-    variable dictionary, 1
+    variable dict, 1
 
-    variable stdin_handle, 1
-    variable stdout_handle, 1
+    variable stdin, 1
+    variable stdout, 1
 
     ; --
     procedure init_io
         literal -10
         da get_std_handle
         da assert
-        da stdin_handle
+        da stdin
         da store
 
         literal -11
         da get_std_handle
         da assert
-        da stdout_handle
+        da stdout
         da store
 
         da return
@@ -753,25 +754,25 @@ section .rdata
 
     ; ptr size --
     procedure print
-        da stdout_handle
+        da stdout
         da load
         da write_file
         da assert
         da drop
         da return
 
-    variable input_buffer, (config_input_buffer_size / 8) + 1
-    variable input_end_ptr, 1
-    constant input_buffer_size, config_input_buffer_size
+    variable input_buf, (config_input_buf_size / 8) + 1
+    variable input_end, 1
+    constant input_lim, config_input_buf_size
 
     ; -- eof?
     procedure input_refill
-        da input_buffer
+        da input_buf
         da copy
         da input_read_ptr
         da store
-        da input_buffer_size
-        da stdin_handle
+        da input_lim
+        da stdin
         da load
         da read_file
         branch_to .success
@@ -783,12 +784,12 @@ section .rdata
 
         .success:
         da copy
-        da input_buffer
+        da input_buf
         da add
         da zeroes
         da over
         da store_byte
-        da input_end_ptr
+        da input_end
         da store
         da eq_zero
         da return
@@ -809,8 +810,8 @@ section .rdata
 
     ; -- eof?
     procedure parser_next
-        da parser_buffer
-        da parser_write_ptr
+        da parser_buf
+        da parser_ptr
         da store
 
         da parser_strip
@@ -828,12 +829,12 @@ section .rdata
 
     ; string length --
     procedure parser_move_string
-        da parser_write_ptr
+        da parser_ptr
         da load
         da over
         da over
         da add
-        da parser_write_ptr
+        da parser_ptr
         da store
 
         da string_copy
@@ -873,10 +874,10 @@ section .rdata
         da drop
         da drop
         da drop
-        da parser_buffer
+        da parser_buf
         literal 1
         da sub
-        da parser_write_ptr
+        da parser_ptr
         da store
         da zeroes
         da return
@@ -885,14 +886,14 @@ section .rdata
     procedure parser_allocate
         da parser_usage
         da add
-        da parser_buffer_size
+        da parser_lim
         da gt
         da return
 
     ; -- string length
     procedure parser_word
-        da parser_buffer
-        da parser_write_ptr
+        da parser_buf
+        da parser_ptr
         da load
         da over
         da sub
@@ -900,9 +901,9 @@ section .rdata
 
     ; -- occupied-bytes
     procedure parser_usage
-        da parser_write_ptr
+        da parser_ptr
         da load
-        da parser_buffer
+        da parser_buf
         da sub
         da return
 
@@ -930,7 +931,7 @@ section .rdata
         da copy
         da input_read_ptr
         da store
-        da input_end_ptr
+        da input_end
         da load
         da eq
         da copy
@@ -942,9 +943,9 @@ section .rdata
         da input_refill
         da return
 
-    variable parser_buffer, config_parser_buffer_size / 8
-    constant parser_buffer_size, config_parser_buffer_size
-    variable parser_write_ptr, 1
+    variable parser_buf, config_parser_buffer_size / 8
+    constant parser_lim, config_parser_buffer_size
+    variable parser_ptr, 1
 
     name kernel32, "kernel32.dll"
     name ExitProcess, "ExitProcess"
@@ -953,12 +954,12 @@ section .rdata
     name ReadFile, "ReadFile"
     name GetLastError, "GetLastError"
 
-    string msg_too_long, `Token too long\n`
-    string msg_not_found, ` not found\n`
+    string msg_tok, `Token too long\n`
+    string msg_find, ` not found\n`
 
     ; name length -- entry?
     procedure find
-        da dictionary
+        da dict
         da load
         da push
 
@@ -983,15 +984,15 @@ section .rdata
         da pop
         da return
 
-    variable is_assembling, 1
+    variable mode, 1
     variable arena, config_arena_size / 8
-    variable arena_top, 1
-    constant arena_size, config_arena_size
+    variable here, 1
+    constant limit, config_arena_size
 
     ; --
     procedure begin
         da ones
-        da is_assembling
+        da mode
         da store
         da return
 
@@ -999,16 +1000,16 @@ section .rdata
     immediate
     procedure end
         da zeroes
-        da is_assembling
+        da mode
         da store
         da return
 
     ; value --
     procedure assemble
-        da arena_top
+        da here
         da load
         da store
-        da arena_top
+        da here
         da copy
         da load
         literal 8
@@ -1019,10 +1020,10 @@ section .rdata
 
     ; value --
     procedure assemble_byte
-        da arena_top
+        da here
         da load
         da store_byte
-        da arena_top
+        da here
         da copy
         da load
         literal 1
@@ -1031,8 +1032,8 @@ section .rdata
         da store
         da return
 
-    constant ptr_get_proc_address, address(GetProcAddress)
-    constant ptr_get_module_handle, address(GetModuleHandleA)
+    constant ffi_gpa, address(GetProcAddress)
+    constant ffi_gmh, address(GetModuleHandleA)
 
 section .bss
     rstack:
