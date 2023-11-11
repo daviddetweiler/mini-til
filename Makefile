@@ -25,7 +25,7 @@ loader.obj: loader.asm bitstream.inc
 
 report: report.md
 
-report.md:
+report.md: analysis.py mini.asm
     python .\analysis.py mini.asm > report.md
 
 clean:
