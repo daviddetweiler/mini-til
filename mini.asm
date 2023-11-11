@@ -88,7 +88,7 @@ global boot
 %macro finalize_dictionary 1
     %push
     %assign %$final_id top_entry + 1
-    constant %1, entry(%$final_id)
+    constant %1, address(entry(%$final_id))
     %assign dict_finalized 1
     %pop
 %endmacro
@@ -469,7 +469,7 @@ section .text
 
         .consume:
         add rax, 1
-        
+
         .next_char:
         movzx rbx, byte [rax]
         cmp rbx, ` `
@@ -487,7 +487,7 @@ section .text
     ; ptr -- new-ptr
     primitive parser_consume_nonspaces
         mov rax, [dp]
-        
+
         .next_char:
         movzx rbx, byte [rax]
         cmp rbx, ` `
@@ -574,6 +574,70 @@ section .text
         int3
         next
 
+    ; -- top
+    primitive peek
+        mov rax, [rp]
+        sub dp, 8
+        mov [dp], rax
+        next
+
+    ; value --
+    primitive push
+        mov rax, [dp]
+        add dp, 8
+        sub rp, 8
+        mov [rp], rax
+        next
+
+    ; -- top
+    primitive pop
+        mov rax, [rp]
+        add rp, 8
+        sub dp, 8
+        mov [dp], rax
+        next
+
+    ; a a-length b b-length -- equal?
+    primitive string_eq
+        mov rcx, [dp]
+        mov rdx, [dp + 8 * 2]
+        mov rsi, [dp + 8]
+        mov rdi, [dp + 8 * 3]
+        add dp, 8 * 3
+        cmp rcx, rdx
+        jne .neq
+
+        repe cmpsb
+        test rcx, rcx
+        jnz .neq
+
+        xor rax, rax
+        not rax
+        mov [dp], rax
+        next
+
+        .neq:
+        xor rax, rax
+        mov [dp], rax
+        next
+
+    ; ptr -- aligned-ptr
+    primitive cell_align
+        mov rax, [dp]
+        and rax, 7
+        sub rax, 8
+        neg rax
+        and rax, 7
+        add [dp], rax
+        next
+
+    ; callable --
+    primitive invoke
+        mov rax, [dp]
+        add dp, 8
+        mov wp, rax
+        run
+
 section .rdata
     align 8
     program:
@@ -597,7 +661,21 @@ section .rdata
         jump_to .exit
 
         .good:
+        da find
+        da copy
+        branch_to .found
+        da drop
+        da parser_word
         da print
+        da msg_not_found
+        da print
+        jump_to .exit
+
+        .found:
+        da entry_name
+        da add
+        da cell_align
+        da invoke
         jump_to .next_input
 
         .exit:
@@ -690,18 +768,12 @@ section .rdata
     constant zero, 0
     variable input_read_ptr, 1
 
-    ; begin end -- begin length
-    procedure string_from_range
-        da over
-        da sub
-        da return
-
     ; -- eof?
     procedure parser_next
         da parser_buffer
         da parser_write_ptr
         da store
-        
+
         da parser_strip_spaces
         branch_to .eof
 
@@ -737,7 +809,8 @@ section .rdata
         da parser_consume_nonspaces
         da over
         da over
-        da string_from_range
+        da over
+        da sub
         da copy
         da parser_allocate
         branch_to .too_long
@@ -782,7 +855,8 @@ section .rdata
         da parser_buffer
         da parser_write_ptr
         da load
-        da string_from_range
+        da over
+        da sub
         da return
 
     ; -- occupied-bytes
@@ -837,6 +911,32 @@ section .rdata
     name VirtualAlloc, "VirtualAlloc"
 
     string msg_too_long, `Token too long\n`
+    string msg_not_found, ` not found\n`
+
+    ; name length -- entry?
+    procedure find
+        da dictionary
+        da load
+        da push
+
+        .next:
+        da over
+        da over
+        da peek
+        da entry_name
+        da string_eq
+        branch_to .found
+        da pop
+        da load
+        da copy
+        da push
+        branch_to .next
+
+        .found:
+        da drop
+        da drop
+        da pop
+        da return
 
 section .bss
     rstack:
@@ -847,7 +947,7 @@ section .bss
 
     ExitProcess:
         resq 1
-    
+
     GetStdHandle:
         resq 1
 
