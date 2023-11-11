@@ -187,7 +187,7 @@ global boot
 %endmacro
 
 %define config_input_buffer_size 4096
-%define config_parse_buffer_size 32
+%define config_parser_buffer_size 32
 
 section .bss
     bss_start:
@@ -463,7 +463,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parse_consume_spaces
+    primitive parser_consume_spaces
         mov rax, [dp]
         jmp .next_char
 
@@ -536,6 +536,29 @@ section .text
         mov [dp], rax
         next
 
+    ; a b -- a>b
+    primitive gt
+        mov rax, [dp + 8]
+        mov rbx, [dp]
+        add dp, 8
+        xor rcx, rcx
+        cmp rax, rbx
+        jle .le
+        not rcx
+
+        .le:
+        mov [dp], rcx
+        next
+
+    ; string length destination --
+    primitive string_copy
+        mov rdi, [dp]
+        mov rcx, [dp + 8]
+        mov rsi, [dp + 8 * 2]
+        add dp, 8 * 3
+        rep movsb
+        next
+
 section .rdata
     align 8
     program:
@@ -543,16 +566,24 @@ section .rdata
         da initialize
 
         .next_input:
-        da parse
-        da copy
-        da eq_zero
+        da parser_next
         branch_to .exit
+        da parser_word
+        da copy
+        da all_ones
+        da neq
+        branch_to .good
+        da drop
+        da drop
+        da msg_too_long
+        da print
+        jump_to .exit
+
+        .good:
         da print
         jump_to .next_input
 
         .exit:
-        da drop
-        da drop
         da magic
         da exit_process
 
@@ -655,18 +686,19 @@ section .rdata
         da sub
         da return
 
-    ; -- string length?
-    ;
-    ; Signals EOF by returning length 0
-    procedure parse
+    ; -- eof?
+    procedure parser_next
         da input_refill
         branch_to .eof
 
-        da parse_buffer
-        da parse_write_ptr
+        da parser_buffer
+        da parser_write_ptr
+        da store
+        da zero
+        da parser_word_length
         da store
         
-        da parse_strip_spaces
+        da parser_strip_spaces
         branch_to .eof
 
         da input_read_ptr
@@ -674,19 +706,54 @@ section .rdata
         da copy
         da parse_consume_nonspaces
         da string_from_range
+        da parser_move_string
+        da zero
         da return
 
         .eof:
-        da zero
+        da all_ones
+        da return
+
+    ; string length --
+    procedure parser_move_string
         da copy
+        da parser_buffer_size
+        da gt
+        branch_to .too_long
+        
+        da copy
+        da parser_word_length
+        da load
+        da add
+        da parser_word_length
+        da store
+
+        da parser_write_ptr
+        da load
+        da string_copy
+        da return
+
+        .too_long:
+        da drop
+        da drop
+        da all_ones
+        da parser_word_length
+        da store
+        da return
+
+    ; -- string length
+    procedure parser_word
+        da parser_buffer
+        da parser_word_length
+        da load
         da return
 
     ; -- eof?
-    procedure parse_strip_spaces
+    procedure parser_strip_spaces
         .again:
         da input_read_ptr
         da load
-        da parse_consume_spaces
+        da parser_consume_spaces
         da input_update
         branch_to .eof
         branch_to .again
@@ -712,9 +779,10 @@ section .rdata
         either_or input_refill, zero
         da return
 
-    variable parse_buffer, config_parse_buffer_size / 8
-    variable parse_word_length, 1
-    variable parse_write_ptr, 1
+    variable parser_buffer, config_parser_buffer_size / 8
+    constant parser_buffer_size, config_parser_buffer_size
+    variable parser_word_length, 1
+    variable parser_write_ptr, 1
 
     name kernel32, "kernel32.dll"
     name ExitProcess, "ExitProcess"
@@ -723,6 +791,8 @@ section .rdata
     name ReadFile, "ReadFile"
     name GetLastError, "GetLastError"
     name VirtualAlloc, "VirtualAlloc"
+
+    string msg_too_long, `Token too long\n`
 
 section .bss
     rstack:
