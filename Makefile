@@ -1,5 +1,13 @@
-run: mini.exe
-    .\mini.exe
+mini.exe: loader.obj
+    link loader.obj kernel32.lib \
+        /entry:start \
+        /subsystem:console \
+        /fixed \
+        /out:mini.exe \
+        /ignore:4254 \
+        /merge:.rdata=kernel \
+        /merge:.text=kernel \
+        /section:kernel,RE
 
 mini.bin: mini.asm
     nasm mini.asm -fbin -o mini.bin
@@ -15,19 +23,10 @@ bitstream.inc: mini.bin.bw inc.py
 loader.obj: loader.asm bitstream.inc
     nasm loader.asm -fwin64
 
-mini.exe: loader.obj
-    link loader.obj kernel32.lib \
-        /entry:start \
-        /subsystem:console \
-        /fixed \
-        /out:mini.exe \
-        /ignore:4254 \
-        /merge:.rdata=kernel \
-        /merge:.text=kernel \
-        /section:kernel,RE
+report: report.md
 
-report:
-    python .\dead-code.py mini.asm
+report.md:
+    python .\analysis.py mini.asm > report.md
 
 clean:
     del *.obj *.exe *.bw *.inc *.bin

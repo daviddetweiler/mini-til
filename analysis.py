@@ -6,7 +6,7 @@ DEFINITION = re.compile(r"^\s*(" + r"|".join(KINDS) + r")\s+(\w+)", re.MULTILINE
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print('Usage: python dead-code.py <filename>')
+        print('Usage: python analysis.py <filename>')
         sys.exit(1)
     
     filename = sys.argv[1]
@@ -15,9 +15,6 @@ if __name__ == '__main__':
 
     definitions = [match.group(2) for match in DEFINITION.finditer(code)]
     definitions = [d for d in definitions if d[-1] != '_']
-    occurrences = {definition: len(list(re.finditer(r"\s" + definition + r"[\s,]", code))) for definition in definitions}
-    print("Unreachable:")
-    for definition, count in occurrences.items():
-        assert count > 0
-        if count == 1:
-            print(f"\t{definition}")
+    print(f"Mini defines the following {len(definitions)} instructions:\n")
+    for definition in definitions:
+        print(f"\t{definition}")    
