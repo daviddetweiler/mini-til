@@ -374,20 +374,6 @@ section .text
         mov [dp], rcx
         next
 
-     ; a b -- a~=b?
-    primitive neq
-        mov rax, [dp]
-        mov rbx, [dp + 8]
-        add dp, 8
-        xor rcx, rcx
-        cmp rax, rbx
-        je .eq
-        not rcx
-
-        .eq:
-        mov [dp], rcx
-        next
-
     ; -- last-error
     primitive get_last_error
         cimport GetLastError
@@ -526,13 +512,6 @@ section .text
         mov [dp + 8], rax
         next
 
-    ; -- top
-    primitive peek
-        mov rax, [rp]
-        sub dp, 8
-        mov [dp], rax
-        next
-
     ; value --
     primitive push
         mov rax, [dp]
@@ -602,6 +581,35 @@ section .text
         or [dp], rax
         next
 
+    ; string length -- n number?
+    primitive number
+        mov rax, [dp + 8]
+        mov rbx, [dp]
+
+        movzx rcx, byte [rax]
+        cmp rcx, `0`
+        jl .not_number
+        cmp rcx, `9`
+        jg .not_number
+
+        xor rcx, rcx
+
+        .next:
+        movzx rdx, byte [rax]
+        sub rdx, `0`
+        imul rcx, 10
+        add rcx, rdx
+        add rax, 1
+        sub rbx, 1
+        jnz .next
+        mov [dp + 8], rcx
+        mov qword [dp], -1
+        next
+
+        .not_number:
+        mov qword [dp], 0
+        next
+
 section .rdata
     align 8
     program:
@@ -616,7 +624,8 @@ section .rdata
         da parser_word
         da copy
         da ones
-        da neq
+        da eq
+        da not
         branch_to .good
         da drop
         da drop
@@ -625,6 +634,10 @@ section .rdata
         jump_to program
 
         .good:
+        da number
+        branch_to .number
+        da drop
+        da parser_word
         da find
         da copy
         branch_to .found
@@ -648,6 +661,22 @@ section .rdata
         da not
         da or
         branch_to .invoke
+        da assemble
+        jump_to .next_input
+
+        .number:
+        da push
+        da drop
+        da drop
+        da pop
+        da is_assembling
+        da load
+        da not
+        branch_to .next_input
+
+        .assemble:
+        literal literal_impl
+        da assemble
         da assemble
         jump_to .next_input
 
@@ -913,7 +942,9 @@ section .rdata
         .next:
         da over
         da over
-        da peek
+        da pop
+        da copy
+        da push
         da entry_name
         da string_eq
         branch_to .found
