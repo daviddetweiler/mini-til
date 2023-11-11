@@ -103,9 +103,9 @@ global boot
     __?SECT?__
 %endmacro
 
-%macro shared 1
+%macro raw 1
     section .rdata
-        constant shared_ %+ %1, address(%1)
+        constant raw_ %+ %1, address(%1)
 
     section .text
         align 16
@@ -180,8 +180,8 @@ global boot
     %%following:
 %endmacro
 
-%macro either_or 2
-    da either_or_impl
+%macro select 2
+    da select_impl
     da %1
     da %2
 %endmacro
@@ -217,7 +217,7 @@ section .text
         next
 
     ; --
-    shared impl_procedure
+    raw impl_procedure
         sub rp, 8
         mov [rp], tp
         lea tp, [wp + 8]
@@ -248,7 +248,7 @@ section .text
         call_import ExitProcess
 
     ; -- constant
-    shared impl_constant
+    raw impl_constant
         mov rax, [wp + 8]
         sub dp, 8
         mov [dp], rax
@@ -310,7 +310,7 @@ section .text
         int 0x29 ; fast_fail_fatal_app_exit
 
     ; -- ptr size
-    shared impl_string
+    raw impl_string
         movzx rax, byte [wp + 8]
         lea rbx, [wp + 9]
         sub dp, 8 * 2
@@ -463,7 +463,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parser_consume_spaces
+    primitive parser_spaces
         mov rax, [dp]
         jmp .next_char
 
@@ -485,7 +485,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parser_consume_nonspaces
+    primitive parser_nonspaces
         mov rax, [dp]
 
         .next_char:
@@ -516,7 +516,7 @@ section .text
         next
 
     ; condition --
-    primitive either_or_impl
+    primitive select_impl
         mov rax, [dp]
         add dp, 8
         mov rbx, [tp]
@@ -654,7 +654,7 @@ section .rdata
         da drop
         da msg_too_long
         da print
-        jump_to .exit
+        jump_to program
 
         .good:
         da find
@@ -665,7 +665,7 @@ section .rdata
         da print
         da msg_not_found
         da print
-        jump_to .exit
+        jump_to program
 
         .found:
         da copy
@@ -679,7 +679,7 @@ section .rdata
         da load
         da not
         da or
-        either_or invoke, assemble
+        select invoke, assemble
         jump_to .next_input
 
         .exit:
@@ -694,6 +694,9 @@ section .rdata
         da dictionary
         da store
         da arena
+        da zero
+        da is_assembling
+        da store
         da arena_top
         da store
         da banner
@@ -813,7 +816,7 @@ section .rdata
         da input_read_ptr
         da load
         da copy
-        da parser_consume_nonspaces
+        da parser_nonspaces
         da over
         da over
         da over
@@ -879,7 +882,7 @@ section .rdata
         .again:
         da input_read_ptr
         da load
-        da parser_consume_spaces
+        da parser_spaces
         da input_update
         branch_to .eof
         branch_to .again
@@ -902,7 +905,7 @@ section .rdata
         da load
         da eq
         da copy
-        either_or input_refill, zero
+        select input_refill, zero
         da return
 
     variable parser_buffer, config_parser_buffer_size / 8
@@ -990,7 +993,7 @@ section .rdata
 
         da copy
         da entry_is_immediate
-        either_or msg_immediate, msg_none
+        select msg_immediate, msg_none
         da print
 
         da load
