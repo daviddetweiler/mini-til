@@ -186,7 +186,7 @@ global boot
     da %2
 %endmacro
 
-%define config_input_buffer_size 4096
+%define config_input_buffer_size 8
 %define config_parser_buffer_size 32
 
 section .bss
@@ -485,7 +485,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parse_consume_nonspaces
+    primitive parser_consume_nonspaces
         mov rax, [dp]
         
         .next_char:
@@ -497,6 +497,8 @@ section .text
         cmp rbx, `\n`
         je .exit
         cmp rbx, `\r`
+        je .exit
+        cmp rbx, 0
         je .exit
         add rax, 1
         jmp .next_char
@@ -559,11 +561,26 @@ section .text
         rep movsb
         next
 
+    ; a b -- b a
+    primitive swap
+        mov rax, [dp]
+        mov rbx, [dp + 8]
+        mov [dp], rbx
+        mov [dp + 8], rax
+        next
+
+    ; --
+    primitive break
+        int3
+        next
+
 section .rdata
     align 8
     program:
         da set_rstack
         da initialize
+        da input_refill
+        branch_to .exit
 
         .next_input:
         da parser_next
@@ -615,13 +632,6 @@ section .rdata
         da get_std_handle
         da assert
         da stdout_handle
-        da store
-
-        da input_buffer
-        da copy
-        da input_end_ptr
-        da store
-        da input_read_ptr
         da store
 
         da return
@@ -688,25 +698,16 @@ section .rdata
 
     ; -- eof?
     procedure parser_next
-        da input_refill
-        branch_to .eof
-
         da parser_buffer
         da parser_write_ptr
-        da store
-        da zero
-        da parser_word_length
         da store
         
         da parser_strip_spaces
         branch_to .eof
 
-        da input_read_ptr
-        da load
-        da copy
-        da parse_consume_nonspaces
-        da string_from_range
-        da parser_move_string
+        da parser_ingest_word
+        branch_to .eof
+
         da zero
         da return
 
@@ -714,23 +715,57 @@ section .rdata
         da all_ones
         da return
 
-    ; string length --
+    ; string length -- too-long?
     procedure parser_move_string
         da copy
+        da parser_buffer_occupied
+        da add
         da parser_buffer_size
         da gt
         branch_to .too_long
-        
-        da copy
-        da parser_word_length
-        da load
-        da add
-        da parser_word_length
-        da store
 
         da parser_write_ptr
         da load
+        da over
+        da over
+        da add
+        da parser_write_ptr
+        da store
+
         da string_copy
+        da zero
+        da return
+
+        .too_long:
+        da drop
+        da drop
+        da all_ones
+        da return
+
+    ; -- eof?
+    procedure parser_ingest_word
+        .again:
+        da input_read_ptr
+        da load
+        da copy
+        da parser_consume_nonspaces
+        da over
+        da over
+        da string_from_range
+        da parser_move_string
+        branch_to .too_long
+        da swap
+        da drop
+        da input_update
+        branch_to .eof
+        branch_to .again
+
+        da zero
+        da return
+
+        .eof:
+        da drop
+        da all_ones
         da return
 
         .too_long:
@@ -739,13 +774,23 @@ section .rdata
         da all_ones
         da parser_word_length
         da store
+        da zero
         da return
 
     ; -- string length
     procedure parser_word
         da parser_buffer
-        da parser_word_length
+        da parser_write_ptr
         da load
+        da string_from_range
+        da return
+
+    ; -- occupied-bytes
+    procedure parser_buffer_occupied
+        da parser_write_ptr
+        da load
+        da parser_buffer
+        da sub
         da return
 
     ; -- eof?
