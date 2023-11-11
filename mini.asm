@@ -188,6 +188,7 @@ global boot
 
 %define config_input_buffer_size 4096
 %define config_parser_buffer_size 128
+%define config_arena_size (1 << 16) - 1
 
 section .bss
     bss_start:
@@ -206,7 +207,6 @@ section .text
         import WriteFile
         import ReadFile
         import GetLastError
-        import VirtualAlloc
 
         lea tp, program
         next
@@ -638,6 +638,18 @@ section .text
         mov wp, rax
         run
 
+    ; a -- ~a
+    primitive not
+        not qword [dp]
+        next
+
+    ; a b -- a|b
+    primitive or
+        mov rax, [dp]
+        add dp, 8
+        or [dp], rax
+        next
+
 section .rdata
     align 8
     program:
@@ -672,10 +684,18 @@ section .rdata
         jump_to .exit
 
         .found:
+        da copy
+        da entry_is_immediate
+        da swap
         da entry_name
         da add
         da cell_align
-        da invoke
+        da swap
+        da is_assembling
+        da load
+        da not
+        da or
+        either_or invoke, assemble
         jump_to .next_input
 
         .exit:
@@ -688,6 +708,9 @@ section .rdata
         da init_io
         da kernel
         da dictionary
+        da store
+        da arena
+        da arena_top
         da store
         da banner
         da print
@@ -908,7 +931,6 @@ section .rdata
     name WriteFile, "WriteFile"
     name ReadFile, "ReadFile"
     name GetLastError, "GetLastError"
-    name VirtualAlloc, "VirtualAlloc"
 
     string msg_too_long, `Token too long\n`
     string msg_not_found, ` not found\n`
@@ -938,6 +960,40 @@ section .rdata
         da pop
         da return
 
+    variable is_assembling, 1
+    variable arena, config_arena_size / 8
+    variable arena_top, 1
+    constant arena_size, config_arena_size
+
+    ; --
+    procedure begin
+        da all_ones
+        da is_assembling
+        da store
+        da return
+
+    ; --
+    immediate
+    procedure end
+        da zero
+        da is_assembling
+        da store
+        da return
+
+    ; value --
+    procedure assemble
+        da arena_top
+        da load
+        da store
+        da arena_top
+        da copy
+        da load
+        literal 8
+        da add
+        da swap
+        da store
+        da return
+
 section .bss
     rstack:
         resq stack_depth
@@ -958,9 +1014,6 @@ section .bss
         resq 1
 
     GetLastError:
-        resq 1
-
-    VirtualAlloc:
         resq 1
 
 section .rdata

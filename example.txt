@@ -1,0 +1,7 @@
+arena_top load
+begin find end
+load load
+arena_top load
+swap assemble
+begin banner print return end
+invoke
