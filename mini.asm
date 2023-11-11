@@ -3,58 +3,23 @@ bits 64
 
 global boot
 
-%ifndef compressed
-    extern ExitProcess
-    extern GetStdHandle
-    extern WriteFile
-    extern ReadFile
-    extern GetLastError
-    extern VirtualAlloc
+%define base_address 0x2000000000
 
-    %define base_address 0
+%macro call_import 1
+    call [%1]
+%endmacro
 
-    %macro call_import 1
-        call %1
-    %endmacro
+%macro name 2
+    name_ %+ %1:
+        db %2, 0
+%endmacro
 
-    %macro prologue 0
-        sub rsp, 8 + 8 * 16
-    %endmacro
-%else
-    %define base_address 0x2000000000
-
-    %macro call_import 1
-        call [%1]
-    %endmacro
-
-    %macro name 2
-        name_ %+ %1:
-            db %2, 0
-    %endmacro
-
-    %macro import 1
-        mov rcx, rsi
-        lea rdx, name_ %+ %1
-        call rdi
-        mov [%1], rax
-    %endmacro
-
-    %macro prologue 0
-        mov rsi, rcx
-        mov rdi, rdx
-
-        lea rcx, name_kernel32
-        call rsi
-
-        mov rsi, rax
-        import ExitProcess
-        import GetStdHandle
-        import WriteFile
-        import ReadFile
-        import GetLastError
-        import VirtualAlloc
-    %endmacro
-%endif
+%macro import 1
+    mov rcx, rsi
+    lea rdx, name_ %+ %1
+    call rdi
+    mov [%1], rax
+%endmacro
 
 %define address(label) (label) + base_address
 
@@ -229,7 +194,20 @@ section .bss
 
 section .text
     boot:
-        prologue
+        mov rsi, rcx
+        mov rdi, rdx
+
+        lea rcx, name_kernel32
+        call rsi
+
+        mov rsi, rax
+        import ExitProcess
+        import GetStdHandle
+        import WriteFile
+        import ReadFile
+        import GetLastError
+        import VirtualAlloc
+
         lea tp, program
         next
 
@@ -671,6 +649,12 @@ section .rdata
     constant zero, 0
     variable input_read_ptr, 1
 
+    ; begin end -- begin length
+    procedure string_from_range
+        da over
+        da sub
+        da return
+
     ; -- string length?
     ;
     ; Signals EOF by returning length 0
@@ -689,9 +673,7 @@ section .rdata
         da load
         da copy
         da parse_consume_nonspaces
-
-        da over
-        da sub
+        da string_from_range
         da return
 
         .eof:
@@ -734,15 +716,13 @@ section .rdata
     variable parse_word_length, 1
     variable parse_write_ptr, 1
 
-    %ifdef compressed
-        name kernel32, "kernel32.dll"
-        name ExitProcess, "ExitProcess"
-        name GetStdHandle, "GetStdHandle"
-        name WriteFile, "WriteFile"
-        name ReadFile, "ReadFile"
-        name GetLastError, "GetLastError"
-        name VirtualAlloc, "VirtualAlloc"
-    %endif
+    name kernel32, "kernel32.dll"
+    name ExitProcess, "ExitProcess"
+    name GetStdHandle, "GetStdHandle"
+    name WriteFile, "WriteFile"
+    name ReadFile, "ReadFile"
+    name GetLastError, "GetLastError"
+    name VirtualAlloc, "VirtualAlloc"
 
 section .bss
     rstack:
@@ -751,25 +731,23 @@ section .bss
     dstack:
         resq stack_depth
 
-    %ifdef compressed
-        ExitProcess:
-            resq 1
-        
-        GetStdHandle:
-            resq 1
+    ExitProcess:
+        resq 1
+    
+    GetStdHandle:
+        resq 1
 
-        WriteFile:
-            resq 1
+    WriteFile:
+        resq 1
 
-        ReadFile:
-            resq 1
+    ReadFile:
+        resq 1
 
-        GetLastError:
-            resq 1
+    GetLastError:
+        resq 1
 
-        VirtualAlloc:
-            resq 1
-    %endif
+    VirtualAlloc:
+        resq 1
 
 section .rdata
     finalize_dictionary kernel
@@ -777,8 +755,6 @@ section .rdata
 section .bss
     bss_end:
 
-%ifdef compressed
-    section .rdata
-        align 8
-        dq bss_end - bss_start
-%endif
+section .rdata
+    align 8
+    dq bss_end - bss_start

@@ -1,14 +1,8 @@
 run: mini.exe
     .\mini.exe
 
-debug.exe: mini.obj
-    link mini.obj kernel32.lib /entry:boot /subsystem:console /out:debug.exe
-
-mini.obj: mini.asm
-    nasm mini.asm -fwin64
-
 mini.bin: mini.asm
-    nasm mini.asm -fbin -o mini.bin -Dcompressed
+    nasm mini.asm -fbin -o mini.bin
 
 mini.bin.bw: mini.bin bitweaver.py
     python .\bitweaver.py pack mini.bin mini.bin.bw
