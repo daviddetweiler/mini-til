@@ -610,6 +610,21 @@ section .text
         mov qword [dp], 0
         next
 
+    ; ptr -- new-ptr
+    primitive parse_line
+        mov rax, [dp]
+
+        .next_char:
+        movzx rbx, byte [rax]
+        cmp rbx, `\n`
+        je .exit
+        add rax, 1
+        jmp .next_char
+
+        .exit:
+        mov [dp], rax
+        next
+
 section .rdata
     align 8
     program:
@@ -681,6 +696,20 @@ section .rdata
         .exit:
         da zeroes
         da exit_process
+
+    procedure flush
+        .again:
+        da input_read_ptr
+        da load
+        da parse_line
+        da input_update
+        branch_to .eof
+        branch_to .again
+        da return
+
+        .eof:
+        da drop
+        da return
 
     ; --
     procedure initialize
