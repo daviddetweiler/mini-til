@@ -23,10 +23,5 @@ bitstream.inc: mini.bin.bw inc.py
 loader.obj: loader.asm bitstream.inc
     nasm loader.asm -fwin64
 
-report: report.md
-
-report.md: analysis.py mini.asm
-    python .\analysis.py mini.asm > report.md
-
 clean:
     del *.obj *.exe *.bw *.inc *.bin

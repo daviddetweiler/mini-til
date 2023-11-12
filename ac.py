@@ -84,7 +84,7 @@ class AdaptiveMarkovModel:
         return self.context_models[self.context].range()
 
 
-MAGIC = 64 - 6
+MAGIC = 64 - 48
 LBOUND = shl(1, MAGIC)
 UBOUND = subtract(0, LBOUND)
 
