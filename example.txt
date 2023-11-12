@@ -1,10 +1,52 @@
-flush This is a short example of using the barebones `mini` wordset to create and use a new function
+flush Here we define a utility instruction ', which simply assembles the next word regardless of immediacy
 
-here load               flush Gets the current asselmbly pointer
-impl_procedure assemble flush Assembles in a pointer to the shared procedure machine code fragment
-begin                   flush Begins assembling
-    banner              flush This is the startup banner used by the interpreter
+flush Start a new entry (leaving the address on the stack)
+here load
+dict load assemble
+
+flush Prepare the header
+1 128 or assemble_byte          flush The `128 or` sets the immediate flag of the length byte
+39 assemble_byte                flush The char code for '
+0 assemble_byte
+here load cell_align here store
+
+flush Assemble the definition
+impl_procedure assemble
+begin
+    parser_next
+    drop
+    parser_word
+    find entry_name add cell_align assemble
+    return
+end
+
+flush Link the new entry
+dict store
+
+flush Now we define the instruction #, which wraps "flush", and will be used for commenting in the same way
+
+here load
+dict load assemble
+
+1 128 or assemble_byte
+35 assemble_byte                flush '#'
+0 assemble_byte                 flush Null-terminate
+here load cell_align here store
+
+impl_procedure assemble
+begin
+    ' flush
+    return
+end
+
+dict store
+
+# And now we define an anonymous function that just prints the startup banner again
+here load
+impl_procedure assemble
+begin
+    banner
     print
-    return              flush An explicit return is needed
-end                     flush Exit the assembler
-invoke                  flush Invoke the pointer left on the stack
+    return
+end
+invoke
