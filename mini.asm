@@ -5,7 +5,7 @@ global boot
 
 %define base_address 0x2000000000
 
-%macro cimport 1
+%macro call_import 1
     call [%1]
 %endmacro
 
@@ -236,7 +236,7 @@ section .text
     ; code --
     primitive exit
         mov rcx, [dp]
-        cimport ExitProcess
+        call_import ExitProcess
 
     ; -- constant
     impl const
@@ -263,7 +263,7 @@ section .text
     ; id -- handle?
     primitive handle
         mov rcx, [dp]
-        cimport GetStdHandle
+        call_import GetStdHandle
         cmp rax, -1
         je .invalid
         test rax, rax
@@ -284,7 +284,7 @@ section .text
         lea r9, [rsp + 8 * 5]
         xor rax, rax
         mov [rsp + 8 * 4], rax
-        cimport WriteFile
+        call_import WriteFile
         add dp, 8 * 2
         mov [dp], rax
         next
@@ -322,7 +322,7 @@ section .text
         lea r9, [rsp + 8 * 5]
         xor rax, rax
         mov [rsp + 8 * 4], rax
-        cimport ReadFile
+        call_import ReadFile
         add dp, 8
         mov [dp], rax
         mov rax, [rsp + 8 * 5]
@@ -376,7 +376,7 @@ section .text
 
     ; -- last-error
     primitive error
-        cimport GetLastError
+        call_import GetLastError
         sub dp, 8
         mov [dp], rax
         next
