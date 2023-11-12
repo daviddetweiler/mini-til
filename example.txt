@@ -1,3 +1,5 @@
+flush This monster defines $, which creates a header based off the name immediately following it.
+
 here load
 
 dict load assemble
@@ -24,6 +26,9 @@ end
 
 dict store
 
+flush Some useful procedures
+
+flush --
 $ immediate
 proc assemble
 begin
@@ -35,6 +40,28 @@ begin
     return
 end
 
+flush --
+flush Assembles the following word regardless of immediacy
+$ '
+proc assemble
+begin
+    prs_next drop
+    prs_word find entry_name add cell_align assemble
+    return
+end immediate
+
+flush --
+flush Nicer comment syntax
+$ #
+proc assemble
+begin
+    ' flush
+    return
+end immediate
+
+# Now we have comments syntax, so lets define function syntax
+
+# --
 $ fn:
 proc assemble
 begin
@@ -44,27 +71,29 @@ begin
     return
 end
 
-fn: '
-    prs_next drop
-    prs_word find entry_name add cell_align assemble
-    return
-end immediate
-
+# --
 fn: end-fn
     lit return assemble
     ' end
     return
 end immediate
 
+# Now loops
+
+# -- target
 fn: do
     here load
 end-fn immediate
 
+# target --
 fn: loop
     lit branch assemble
     here load 8 add sub assemble
 end-fn immediate
 
+# Some output helpers
+
+# --
 fn: defstr:
     $
     str assemble
@@ -75,13 +104,15 @@ defstr: nl
 10 assemble_byte
 0 assemble_byte
 
+# str len --
 fn: println
     print nl print
 end-fn
 
-fn: walk
-    dict load
+# And a dictionary walk
 
+# ptr --
+fn: walk
     do
         copy entry_name println
         load copy
@@ -90,4 +121,4 @@ fn: walk
     drop
 end-fn
 
-walk
+kernel walk
