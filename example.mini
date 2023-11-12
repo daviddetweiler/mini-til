@@ -161,8 +161,7 @@ fn: string:
     0 assemble_byte
 end-fn
 
-s" Mini (C) 2023 David Detweiler" string: banner
-s" Type `dict load walk` to list avilable instructions" string: hint
-banner println
-hint println
-nl print
+s" Hello world!" string: greeting
+greeting println nl print
+
+kernel walk

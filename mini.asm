@@ -659,7 +659,7 @@ section .rdata
         da drop
         da msg_tok
         da print
-        jump_to .error
+        jump_to program
 
         .good:
         da number
@@ -674,7 +674,7 @@ section .rdata
         da print
         da msg_find
         da print
-        jump_to .error
+        jump_to program
 
         .found:
         da copy
@@ -710,10 +710,6 @@ section .rdata
         da zeroes
         da exit
 
-        .error:
-        da ones
-        da exit
-
     immediate
     procedure flush
         .again:
@@ -741,7 +737,11 @@ section .rdata
         da store
         da here
         da store
+        da banner
+        da print
         da return
+
+    string banner, `Mini (C) 2023 David Detweiler\n\n`
 
     variable dict, 1
 
