@@ -66,11 +66,25 @@ fn: loop
     here load 8 add sub assemble
 end-fn immediate
 
+fn: str:
+    $
+    impl_string assemble
+end-fn
+
+str: nl
+1 assemble_byte
+10 assemble_byte
+0 assemble_byte
+
+fn: println
+    print nl print
+end-fn
+
 fn: foo
     dict load
 
     do
-        copy entry_name print
+        copy entry_name println
         load copy
     loop
 

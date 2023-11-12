@@ -549,6 +549,11 @@ section .text
         test rcx, rcx
         jnz .neq
 
+        movzx rax, byte [rsi - 1]
+        movzx rbx, byte [rdi - 1]
+        cmp rax, rbx
+        jne .neq
+
         xor rax, rax
         not rax
         mov [dp], rax
