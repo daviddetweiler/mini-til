@@ -5,14 +5,14 @@ dict load assemble
 36 assemble_byte 0 assemble_byte
 here load cell_align here store
 
-impl_procedure assemble
+proc assemble
 begin
     here load
     dict load assemble
     dict store
 
-    parser_next drop
-    parser_word
+    prs_next drop
+    prs_word
     copy assemble_byte
     copy push
     here load string_copy
@@ -25,7 +25,7 @@ end
 dict store
 
 $ immediate
-impl_procedure assemble
+proc assemble
 begin
     dict load
     8 add
@@ -36,22 +36,22 @@ begin
 end
 
 $ fn:
-impl_procedure assemble
+proc assemble
 begin
     $
-    impl_procedure assemble
+    proc assemble
     begin
     return
 end
 
 fn: '
-    parser_next drop
-    parser_word find entry_name add cell_align assemble
+    prs_next drop
+    prs_word find entry_name add cell_align assemble
     return
 end immediate
 
 fn: end-fn
-    literal_impl return assemble
+    lit return assemble
     ' end
     return
 end immediate
@@ -61,13 +61,13 @@ fn: do
 end-fn immediate
 
 fn: loop
-    literal_impl branch_impl assemble
+    lit branch assemble
     here load 8 add sub assemble
 end-fn immediate
 
 fn: defstr:
     $
-    impl_string assemble
+    str assemble
 end-fn
 
 defstr: nl
@@ -79,7 +79,7 @@ fn: println
     print nl print
 end-fn
 
-fn: foo
+fn: walk
     dict load
 
     do
@@ -90,4 +90,4 @@ fn: foo
     drop
 end-fn
 
-foo
+walk

@@ -105,7 +105,7 @@ global boot
 
 %macro impl 1
     section .rdata
-        constant impl_ %+ %1, address(ptr_ %+ %1)
+        constant %1, address(ptr_ %+ %1)
 
     section .text
         align 16
@@ -113,7 +113,7 @@ global boot
 %endmacro
 
 %macro primitive 1
-    ; x86 prefers 16-byte aligned jump_impl targets
+    ; x86 prefers 16-byte aligned jump targets
     align 16
     code_field %1, %%code
         %%code:
@@ -121,7 +121,7 @@ global boot
 
 %macro procedure 1
     align 8
-    code_field %1, ptr_procedure
+    code_field %1, ptr_proc
 %endmacro
 
 %macro string 2
@@ -132,7 +132,7 @@ global boot
         %error "string too long"
     %endif
 
-    code_field %1, ptr_string
+    code_field %1, ptr_str
         db %$length, %2, 0
 
     %pop
@@ -140,7 +140,7 @@ global boot
 
 %macro constant 2
     align 8
-    code_field %1, ptr_constant
+    code_field %1, ptr_const
         dq %2
 %endmacro
 
@@ -159,24 +159,24 @@ global boot
 %endmacro
 
 %macro literal 1
-    da literal_impl
+    da lit
     dq %1
 %endmacro
 
 %macro jump_to 1
-    da jump_impl
+    da jump
     dq %1 - %%following
     %%following:
 %endmacro
 
 %macro branch_to 1
-    da branch_impl
+    da branch
     dq %1 - %%following
     %%following:
 %endmacro
 
-%define config_input_buf_size 4096
-%define config_parser_buffer_size 128
+%define config_in_buf_size 4096
+%define config_prs_buffer_size 128
 %define config_arena_size (1 << 16) - 1
 
 section .bss
@@ -203,12 +203,12 @@ section .text
         next
 
     ; --
-    primitive set_rstack
+    primitive clrs
         lea rp, stack_base(rstack)
         next
 
     ; --
-    impl procedure
+    impl proc
         sub rp, 8
         mov [rp], tp
         lea tp, [wp + 8]
@@ -221,12 +221,12 @@ section .text
         next
 
     ; --
-    primitive set_dstack
+    primitive clds
         lea dp, stack_base(dstack)
         next
 
     ; -- value
-    primitive literal_impl
+    primitive lit
         mov rax, [tp]
         add tp, 8
         sub dp, 8
@@ -234,12 +234,12 @@ section .text
         next
 
     ; code --
-    primitive exit_process
+    primitive exit
         mov rcx, [dp]
         cimport ExitProcess
 
     ; -- constant
-    impl constant
+    impl const
         mov rax, [wp + 8]
         sub dp, 8
         mov [dp], rax
@@ -261,7 +261,7 @@ section .text
         next
 
     ; id -- handle?
-    primitive get_std_handle
+    primitive handle
         mov rcx, [dp]
         cimport GetStdHandle
         cmp rax, -1
@@ -277,7 +277,7 @@ section .text
         next
 
     ; ptr size handle -- success?
-    primitive write_file
+    primitive wfile
         mov rcx, [dp]
         mov rdx, [dp + 16]
         mov r8, [dp + 8]
@@ -301,7 +301,7 @@ section .text
         int 0x29 ; fast_fail_fatal_app_exit
 
     ; -- ptr size
-    impl string
+    impl str
         movzx rax, byte [wp + 8]
         lea rbx, [wp + 9]
         sub dp, 8 * 2
@@ -315,7 +315,7 @@ section .text
         next
 
     ; buffer size handle -- bytes-read success?
-    primitive read_file
+    primitive rfile
         mov rcx, [dp]
         mov rdx, [dp + 16]
         mov r8, [dp + 8]
@@ -342,7 +342,7 @@ section .text
         next
 
     ; value --
-    primitive branch_impl
+    primitive branch
         mov rax, [dp]
         add dp, 8
         mov rbx, [tp]
@@ -355,7 +355,7 @@ section .text
         next
 
     ; --
-    primitive jump_impl
+    primitive jump
         mov rax, [tp]
         lea tp, [tp + rax + 8]
         next
@@ -375,7 +375,7 @@ section .text
         next
 
     ; -- last-error
-    primitive get_last_error
+    primitive error
         cimport GetLastError
         sub dp, 8
         mov [dp], rax
@@ -429,7 +429,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parser_spaces
+    primitive prs_spaces
         mov rax, [dp]
         jmp .next_char
 
@@ -451,7 +451,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parser_nonspaces
+    primitive prs_nonspaces
         mov rax, [dp]
 
         .next_char:
@@ -623,7 +623,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive parser_line
+    primitive prs_line
         mov rax, [dp]
 
         .next_char:
@@ -640,16 +640,16 @@ section .text
 section .rdata
     align 8
     program:
-        da set_rstack
-        da set_dstack
+        da clrs
+        da clds
         da init
-        da input_refill
+        da in_refill
         branch_to .exit
 
         .next_input:
-        da parser_next
+        da prs_next
         branch_to .exit
-        da parser_word
+        da prs_word
         da copy
         da ones
         da eq
@@ -665,12 +665,12 @@ section .rdata
         da number
         branch_to .number
         da drop
-        da parser_word
+        da prs_word
         da find
         da copy
         branch_to .found
         da drop
-        da parser_word
+        da prs_word
         da print
         da msg_find
         da print
@@ -697,7 +697,7 @@ section .rdata
         da load
         da not
         branch_to .next_input
-        literal address(literal_impl)
+        literal address(lit)
         da assemble
         da assemble
         jump_to .next_input
@@ -708,15 +708,15 @@ section .rdata
 
         .exit:
         da zeroes
-        da exit_process
+        da exit
 
     immediate
     procedure flush
         .again:
-        da input_read_ptr
+        da in_ptr
         da load
-        da parser_line
-        da input_update
+        da prs_line
+        da in_update
         branch_to .eof
         branch_to .again
         da return
@@ -749,13 +749,13 @@ section .rdata
     ; --
     procedure init_io
         literal -10
-        da get_std_handle
+        da handle
         da assert
         da stdin
         da store
 
         literal -11
-        da get_std_handle
+        da handle
         da assert
         da stdout
         da store
@@ -768,27 +768,27 @@ section .rdata
     procedure print
         da stdout
         da load
-        da write_file
+        da wfile
         da assert
         da drop
         da return
 
-    variable input_buf, (config_input_buf_size / 8) + 1
-    variable input_end, 1
-    constant input_lim, config_input_buf_size
+    variable in_buf, (config_in_buf_size / 8) + 1
+    variable in_end, 1
+    constant in_lim, config_in_buf_size
 
     ; -- eof?
-    procedure input_refill
-        da input_buf
+    procedure in_refill
+        da in_buf
         da copy
-        da input_read_ptr
+        da in_ptr
         da store
-        da input_lim
+        da in_lim
         da stdin
         da load
-        da read_file
+        da rfile
         branch_to .success
-        da get_last_error
+        da error
         literal 0x6d
         da eq
         branch_to .success
@@ -796,12 +796,12 @@ section .rdata
 
         .success:
         da copy
-        da input_buf
+        da in_buf
         da add
         da zeroes
         da over
         da store_byte
-        da input_end
+        da in_end
         da store
         da eq_zero
         da return
@@ -818,18 +818,18 @@ section .rdata
         da return
 
     constant zeroes, 0
-    variable input_read_ptr, 1
+    variable in_ptr, 1
 
     ; -- eof?
-    procedure parser_next
-        da parser_buf
-        da parser_ptr
+    procedure prs_next
+        da prs_buf
+        da prs_ptr
         da store
 
-        da parser_strip
+        da prs_strip
         branch_to .eof
 
-        da parser_ingest_word
+        da prs_ingest
         branch_to .eof
 
         da zeroes
@@ -840,36 +840,36 @@ section .rdata
         da return
 
     ; string length --
-    procedure parser_move_string
-        da parser_ptr
+    procedure prs_move
+        da prs_ptr
         da load
         da over
         da over
         da add
-        da parser_ptr
+        da prs_ptr
         da store
 
         da string_copy
         da return
 
     ; -- eof?
-    procedure parser_ingest_word
+    procedure prs_ingest
         .again:
-        da input_read_ptr
+        da in_ptr
         da load
         da copy
-        da parser_nonspaces
+        da prs_nonspaces
         da over
         da over
         da over
         da sub
         da copy
-        da parser_allocate
+        da prs_alloc
         branch_to .too_long
-        da parser_move_string
+        da prs_move
         da swap
         da drop
-        da input_update
+        da in_update
         branch_to .eof
         branch_to .again
 
@@ -886,46 +886,46 @@ section .rdata
         da drop
         da drop
         da drop
-        da parser_buf
+        da prs_buf
         literal 1
         da sub
-        da parser_ptr
+        da prs_ptr
         da store
         da zeroes
         da return
 
     ; length -- too-long?
-    procedure parser_allocate
-        da parser_usage
+    procedure prs_alloc
+        da prs_usage
         da add
-        da parser_lim
+        da prs_lim
         da gt
         da return
 
     ; -- string length
-    procedure parser_word
-        da parser_buf
-        da parser_ptr
+    procedure prs_word
+        da prs_buf
+        da prs_ptr
         da load
         da over
         da sub
         da return
 
     ; -- occupied-bytes
-    procedure parser_usage
-        da parser_ptr
+    procedure prs_usage
+        da prs_ptr
         da load
-        da parser_buf
+        da prs_buf
         da sub
         da return
 
     ; -- eof?
-    procedure parser_strip
+    procedure prs_strip
         .again:
-        da input_read_ptr
+        da in_ptr
         da load
-        da parser_spaces
-        da input_update
+        da prs_spaces
+        da in_update
         branch_to .eof
         branch_to .again
         da zeroes
@@ -939,11 +939,11 @@ section .rdata
     constant ones, ~0
 
     ; read-ptr -- fresh-input? eof?
-    procedure input_update
+    procedure in_update
         da copy
-        da input_read_ptr
+        da in_ptr
         da store
-        da input_end
+        da in_end
         da load
         da eq
         da copy
@@ -952,12 +952,12 @@ section .rdata
         da return
 
         .refill:
-        da input_refill
+        da in_refill
         da return
 
-    variable parser_buf, config_parser_buffer_size / 8
-    constant parser_lim, config_parser_buffer_size
-    variable parser_ptr, 1
+    variable prs_buf, config_prs_buffer_size / 8
+    constant prs_lim, config_prs_buffer_size
+    variable prs_ptr, 1
 
     name kernel32, "kernel32.dll"
     name ExitProcess, "ExitProcess"
