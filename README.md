@@ -1,10 +1,9 @@
 # `mini`
 
-`mini` is a "complete" Forth-like language in a single 4096-byte Windows executable. See `example.mini` for usage. In
-many ways it resembles a kind of macro assembler, a step just below a fully-featured Forth (_c.f._
-[Silicon](https://github.com/daviddetweiler/silicon)). New primitive words can be defined circuitously through
-`assemble_byte` and `ffi_gpa`/`ffi_gmh`, and everything else is achievable through its minimalist memory management and
-assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context.
+`mini` is a "complete" Forth-like language / command interpreter in a single 4096-byte Windows executable. See
+`example.mini` for scripting usage. New primitive words can be defined circuitously through `assemble_byte` and
+`ffi_gpa`/`ffi_gmh` (`GetProcAddress`/`GetModuleHandle`), and everything else is achievable through its minimalist
+memory management and assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context.
 
 ## Build Instructions
 

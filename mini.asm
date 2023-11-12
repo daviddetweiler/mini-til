@@ -659,7 +659,7 @@ section .rdata
         da drop
         da msg_tok
         da print
-        jump_to program
+        jump_to .abort
 
         .good:
         da number
@@ -674,7 +674,7 @@ section .rdata
         da print
         da msg_find
         da print
-        jump_to program
+        jump_to .abort
 
         .found:
         da copy
@@ -708,6 +708,10 @@ section .rdata
 
         .exit:
         da zeroes
+        da exit
+
+        .abort:
+        da ones
         da exit
 
     immediate
