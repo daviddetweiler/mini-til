@@ -481,6 +481,13 @@ section .text
         mov [rax], bl
         next
 
+    ; ptr -- byte
+    primitive load_byte
+        mov rax, [dp]
+        movzx rax, byte [rax]
+        mov [dp], rax
+        next
+
     ; a b -- a>b
     primitive gt
         mov rax, [dp + 8]

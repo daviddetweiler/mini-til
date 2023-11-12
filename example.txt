@@ -1,52 +1,64 @@
-flush Here we define a utility instruction ', which simply assembles the next word regardless of immediacy
-
-flush Start a new entry (leaving the address on the stack)
 here load
-dict load assemble
 
-flush Prepare the header
-1 128 or assemble_byte          flush The `128 or` sets the immediate flag of the length byte
-39 assemble_byte                flush The char code for '
-0 assemble_byte
+dict load assemble
+1 assemble_byte
+36 assemble_byte 0 assemble_byte
 here load cell_align here store
 
-flush Assemble the definition
 impl_procedure assemble
 begin
-    parser_next
-    drop
+    here load
+    dict load assemble
+    dict store
+
+    parser_next drop
     parser_word
-    find entry_name add cell_align assemble
-    return
-end
+    copy assemble_byte
+    copy push
+    here load string_copy
+    pop here load add here store
+    0 assemble_byte
+    here load cell_align here store
 
-flush Link the new entry
-dict store
-
-flush Now we define the instruction #, which wraps "flush", and will be used for commenting in the same way
-
-here load
-dict load assemble
-
-1 128 or assemble_byte
-35 assemble_byte                flush '#'
-0 assemble_byte                 flush Null-terminate
-here load cell_align here store
-
-impl_procedure assemble
-begin
-    ' flush
     return
 end
 
 dict store
 
-# And now we define an anonymous function that just prints the startup banner again
-here load
+$ immediate
 impl_procedure assemble
 begin
-    banner
-    print
+    dict load
+    8 add
+    copy load_byte
+    128 or
+    swap store_byte
     return
 end
-invoke
+
+$ fn:
+impl_procedure assemble
+begin
+    $
+    impl_procedure assemble
+    begin
+    return
+end
+
+fn: '
+    parser_next drop
+    parser_word find entry_name add cell_align assemble
+    return
+end immediate
+
+fn: end-fn
+    literal_impl return assemble
+    ' end
+    return
+end immediate
+
+fn: foo
+    banner print
+end-fn
+
+foo
