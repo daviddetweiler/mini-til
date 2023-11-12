@@ -121,4 +121,48 @@ fn: walk
     drop
 end-fn
 
-kernel walk
+fn: const:
+    $
+    const assemble
+    assemble
+end-fn
+
+34 const: quotes
+
+# start end -- start len
+fn: string-from-range
+    over sub
+end-fn
+
+# Exceedingly hacky because I haven't implemented conditionals yet; will happily read past the end if the terminating
+# quote is not available
+# -- string length
+fn: s"
+    in_ptr load
+    do
+        1 add
+        copy load_byte quotes eq not
+    loop
+    in_ptr load 1 add swap
+    copy 1 add in_update drop drop
+    string-from-range
+end-fn
+
+# string length --
+fn: string:
+    $
+    str assemble
+    copy assemble_byte
+
+    here load over over add push
+    string_copy
+
+    pop here store
+    0 assemble_byte
+end-fn
+
+s" Mini (C) 2023 David Detweiler" string: banner
+s" Type `dict load walk` to list avilable instructions" string: hint
+banner println
+hint println
+nl print

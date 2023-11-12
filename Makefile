@@ -9,6 +9,9 @@ mini.exe: loader.obj
         /merge:.text=kernel \
         /section:kernel,RE
 
+run:
+    python .\wrapper.py core.mini - | mini.exe
+
 mini.bin: mini.asm
     nasm mini.asm -fbin -o mini.bin
 

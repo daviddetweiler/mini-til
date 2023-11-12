@@ -737,8 +737,6 @@ section .rdata
         da store
         da here
         da store
-        da banner
-        da print
         da return
 
     variable dict, 1
@@ -761,8 +759,6 @@ section .rdata
         da store
 
         da return
-
-    string banner, `Mini (c) 2023 David Detweiler\n\n`
 
     ; ptr size --
     procedure print
