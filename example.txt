@@ -17,7 +17,6 @@ begin
     copy push
     here load string_copy
     pop here load add here store
-    0 assemble_byte
     here load cell_align here store
 
     return
@@ -66,12 +65,12 @@ fn: loop
     here load 8 add sub assemble
 end-fn immediate
 
-fn: str:
+fn: defstr:
     $
     impl_string assemble
 end-fn
 
-str: nl
+defstr: nl
 1 assemble_byte
 10 assemble_byte
 0 assemble_byte
