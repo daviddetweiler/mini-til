@@ -57,8 +57,24 @@ fn: end-fn
     return
 end immediate
 
+fn: do
+    here load
+end-fn immediate
+
+fn: loop
+    literal_impl branch_impl assemble
+    here load 8 add sub assemble
+end-fn immediate
+
 fn: foo
-    banner print
+    dict load
+
+    do
+        copy entry_name print
+        load copy
+    loop
+
+    drop
 end-fn
 
 foo
