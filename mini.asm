@@ -589,6 +589,16 @@ section .text
         mov rbx, [dp]
 
         movzx rcx, byte [rax]
+        xor r10, r10
+        cmp rcx, `-`
+        jne .not_negative
+        not r10
+        add rax, 1
+        sub rbx, 1
+        jz .not_number
+        movzx rcx, byte [rax]
+
+        .not_negative:
         cmp rcx, `0`
         jl .not_number
         cmp rcx, `9`
@@ -604,6 +614,12 @@ section .text
         add rax, 1
         sub rbx, 1
         jnz .next
+
+        test r10, r10
+        jz .no_negate
+        neg rcx
+
+        .no_negate:
         mov [dp + 8], rcx
         mov qword [dp], -1
         next
