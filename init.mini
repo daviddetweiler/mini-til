@@ -100,6 +100,23 @@ fn: const:
     asm
 end-fn
 
+92 const: backslash
+
+# --
+fn: \
+    do
+        in_ptr load backslash prs_ch in_adv
+        swap not or not
+    loop
+
+    in_ptr load 1 add in_adv drop drop
+end-fn immediate
+
+\
+    The above magic little definition lets us do block comments
+    like these.
+\
+
 34 const: quotes
 
 # start end -- start len
@@ -107,15 +124,14 @@ fn: string-from-range
     over sub
 end-fn
 
-# Exceedingly hacky because I haven't implemented conditionals yet; will happily read past the end if the terminating
-# quote is not available
+# Because of how prs_ch works, this treats the end of line as an implicit closing quote, which I guess is neat, though
+# utterly useless.
 # -- string length
 fn: s"
-    in_ptr load
-    do
-        1 add
-        copy bload quotes eq not
-    loop
+    \
+        Block comments even work inside assembly mode
+    \
+    in_ptr load quotes prs_ch
     in_ptr load 1 add swap
     copy 1 add in_adv drop drop
     string-from-range

@@ -628,14 +628,18 @@ section .text
         mov qword [dp], 0
         next
 
-    ; ptr -- new-ptr
-    primitive prs_nl
-        mov rax, [dp]
+    ; ptr code -- new-ptr
+    primitive prs_ch
+        mov rax, [dp + 8]
+        mov rcx, [dp]
+        add dp, 8
 
         .next_char:
         movzx rbx, byte [rax]
-        cmp rbx, `\n`
+        cmp rbx, rcx
         je .exit
+        test rbx, rbx
+        jz .exit
         add rax, 1
         jmp .next_char
 
@@ -743,7 +747,8 @@ section .rdata
         .again:
         da in_ptr
         da load
-        da prs_nl
+        literal `\n`
+        da prs_ch
         da in_adv
         branch_to .eof
         branch_to .again
