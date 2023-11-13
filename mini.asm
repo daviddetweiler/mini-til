@@ -1,1169 +1,1169 @@
-default rel
-bits 64
+DEFAULT REL
+BITS 64
 
-global boot
+GLOBAL BOOT
 
-%define base_address 0x2000000000
+%DEFINE BASE_ADDRESS 0X2000000000
 
-%macro call_import 1
-    call [%1]
-%endmacro
+%MACRO CALL_IMPORT 1
+    CALL [%1]
+%ENDMACRO
 
-%macro name 2
-    name_ %+ %1:
-        db %2, 0
-%endmacro
+%MACRO NAME 2
+    NAME_ %+ %1:
+        DB %2, 0
+%ENDMACRO
 
-%macro import 1
-    mov rcx, rsi
-    lea rdx, name_ %+ %1
-    call rdi
-    mov [%1], rax
-%endmacro
+%MACRO IMPORT 1
+    MOV RCX, RSI
+    LEA RDX, NAME_ %+ %1
+    CALL RDI
+    MOV [%1], RAX
+%ENDMACRO
 
-%define address(label) (label) + base_address
+%DEFINE ADDRESS(LABEL) (LABEL) + BASE_ADDRESS
 
-%macro da 1
-    dq address(%1)
-%endmacro
+%MACRO DA 1
+    DQ ADDRESS(%1)
+%ENDMACRO
 
-%define tp r15
-%define wp r14
-%define rp r13
-%define dp r12
+%DEFINE TP R15
+%DEFINE WP R14
+%DEFINE RP R13
+%DEFINE DP R12
 
-%macro run 0
-    jmp [wp]
-%endmacro
+%MACRO RUN 0
+    JMP [WP]
+%ENDMACRO
 
-%macro next 0
-    mov wp, [tp]
-    add tp, 8
-    run
-%endmacro
+%MACRO NEXT 0
+    MOV WP, [TP]
+    ADD TP, 8
+    RUN
+%ENDMACRO
 
-%define stack_depth 1024
-%define stack_base(label) label + stack_depth * 8
+%DEFINE STACK_DEPTH 1024
+%DEFINE STACK_BASE(LABEL) LABEL + STACK_DEPTH * 8
 
-%assign top_entry 0
-%define entry(id) header_ %+ id
-%define header_0 0 - base_address
-%assign this_entry_flag 0
-%assign dict_finalized 0
+%ASSIGN TOP_ENTRY 0
+%DEFINE ENTRY(ID) HEADER_ %+ ID
+%DEFINE HEADER_0 0 - BASE_ADDRESS
+%ASSIGN THIS_ENTRY_FLAG 0
+%ASSIGN DICT_FINALIZED 0
 
-%macro immediate 0
-    %assign this_entry_flag 0x80
-%endmacro
+%MACRO IMMEDIATE 0
+    %ASSIGN THIS_ENTRY_FLAG 0X80
+%ENDMACRO
 
-%macro header 1
-    %push
+%MACRO HEADER 1
+    %PUSH
 
-    %if dict_finalized
-        %error "dict already finalized"
-    %endif
+    %IF DICT_FINALIZED
+        %ERROR "DICT ALREADY FINALIZED"
+    %ENDIF
 
-    %defstr %$name %1
-    %assign %$length %strlen(%$name)
-    %if %$length > 7
-        %error "name too long"
-    %endif
+    %DEFSTR %$NAME %1
+    %ASSIGN %$LENGTH %STRLEN(%$NAME)
+    %IF %$LENGTH > 7
+        %ERROR "NAME TOO LONG"
+    %ENDIF
 
-    %assign %$this_entry top_entry + 1
+    %ASSIGN %$THIS_ENTRY TOP_ENTRY + 1
 
-    [section .rdata]
-        align 8
-        entry(%$this_entry):
-            da entry(top_entry)
-            db %$length | this_entry_flag
-            db %$name
+    [SECTION .rdata]
+        ALIGN 8
+        ENTRY(%$THIS_ENTRY):
+            DA ENTRY(TOP_ENTRY)
+            DB %$LENGTH | THIS_ENTRY_FLAG
+            DB %$NAME
 
     __?SECT?__
 
-    %assign this_entry_flag 0
-    %assign top_entry %$this_entry
+    %ASSIGN THIS_ENTRY_FLAG 0
+    %ASSIGN TOP_ENTRY %$THIS_ENTRY
 
-    %pop
-%endmacro
+    %POP
+%ENDMACRO
 
-%macro finalize_dictionary 1
-    %push
-    %assign %$final_id top_entry + 1
-    constant %1, address(entry(%$final_id))
-    %assign dict_finalized 1
-    %pop
-%endmacro
+%MACRO FINALIZE_DICTIONARY 1
+    %PUSH
+    %ASSIGN %$FINAL_ID TOP_ENTRY + 1
+    CONSTANT %1, ADDRESS(ENTRY(%$FINAL_ID))
+    %ASSIGN DICT_FINALIZED 1
+    %POP
+%ENDMACRO
 
-%macro code_field 2
-    header %1
-    [section .rdata]
-        align 8
+%MACRO CODE_FIELD 2
+    HEADER %1
+    [SECTION .rdata]
+        ALIGN 8
         %1:
-            da %2
+            DA %2
 
     __?SECT?__
-%endmacro
+%ENDMACRO
 
-%macro impl 1
-    section .rdata
-        constant %1, address(ptr_ %+ %1)
+%MACRO IMPL 1
+    SECTION .rdata
+        CONSTANT %1, ADDRESS(PTR_ %+ %1)
 
-    section .text
-        align 16
-        ptr_ %+ %1:
-%endmacro
+    SECTION .text
+        ALIGN 16
+        PTR_ %+ %1:
+%ENDMACRO
 
-%macro primitive 1
-    ; x86 prefers 16-byte aligned jump targets
-    align 16
-    code_field %1, %%code
-        %%code:
-%endmacro
+%MACRO PRIMITIVE 1
+    ; X86 PREFERS 16-BYTE ALIGNED JUMP TARGETS
+    ALIGN 16
+    CODE_FIELD %1, %%CODE
+        %%CODE:
+%ENDMACRO
 
-%macro procedure 1
-    align 8
-    code_field %1, ptr_proc
-%endmacro
+%MACRO PROCEDURE 1
+    ALIGN 8
+    CODE_FIELD %1, PTR_PROC
+%ENDMACRO
 
-%macro string 2
-    %push
+%MACRO STRING 2
+    %PUSH
 
-    %assign %$length %strlen(%2)
-    %if %$length > 255
-        %error "string too long"
-    %endif
+    %ASSIGN %$LENGTH %STRLEN(%2)
+    %IF %$LENGTH > 255
+        %ERROR "STRING TOO LONG"
+    %ENDIF
 
-    code_field %1, ptr_str
-        db %$length, %2, 0
+    CODE_FIELD %1, PTR_STR
+        DB %$LENGTH, %2, 0
 
-    %pop
-%endmacro
+    %POP
+%ENDMACRO
 
-%macro constant 2
-    align 8
-    code_field %1, ptr_const
-        dq %2
-%endmacro
+%MACRO CONSTANT 2
+    ALIGN 8
+    CODE_FIELD %1, PTR_CONST
+        DQ %2
+%ENDMACRO
 
-%macro variable 2
-    %if %2 < 1
-        %error "variable size must be at least 1"
-    %endif
+%MACRO VARIABLE 2
+    %IF %2 < 1
+        %ERROR "VARIABLE SIZE MUST BE AT LEAST 1"
+    %ENDIF
 
-    constant %1, address(%%storage)
-    [section .bss]
-        align 8
-        %%storage:
-            resq %2
+    CONSTANT %1, ADDRESS(%%STORAGE)
+    [SECTION .bss]
+        ALIGN 8
+        %%STORAGE:
+            RESQ %2
 
     __?SECT?__
-%endmacro
+%ENDMACRO
 
-%macro literal 1
-    da lit
-    dq %1
-%endmacro
+%MACRO LITERAL 1
+    DA LIT
+    DQ %1
+%ENDMACRO
 
-%macro jump_to 1
-    da jump
-    dq %1 - %%following
-    %%following:
-%endmacro
+%MACRO JUMP_TO 1
+    DA JUMP
+    DQ %1 - %%FOLLOWING
+    %%FOLLOWING:
+%ENDMACRO
 
-%macro branch_to 1
-    da branch
-    dq %1 - %%following
-    %%following:
-%endmacro
+%MACRO BRANCH_TO 1
+    DA BRANCH
+    DQ %1 - %%FOLLOWING
+    %%FOLLOWING:
+%ENDMACRO
 
-%define config_in_buf_size 4096
-%define config_prs_buffer_size 128
-%define config_arena_size (1 << 16) - 1
+%DEFINE CONFIG_IN_BUF_SIZE 4096
+%DEFINE CONFIG_PRS_BUFFER_SIZE 128
+%DEFINE CONFIG_ARENA_SIZE (1 << 16) - 1
 
-section .bss
-    bss_start:
+SECTION .bss
+    BSS_START:
 
-section .text
-    boot:
-        mov rsi, rcx
-        mov rdi, rdx
-        mov [GetModuleHandleA], rsi
-        mov [GetProcAddress], rdi
+SECTION .text
+    BOOT:
+        MOV RSI, RCX
+        MOV RDI, RDX
+        MOV [GetModuleHandleA], RSI
+        MOV [GetProcAddress], RDI
 
-        lea rcx, name_kernel32
-        call rsi
+        LEA RCX, NAME_KERNEL32
+        CALL RSI
 
-        mov rsi, rax
-        import ExitProcess
-        import GetStdHandle
-        import WriteFile
-        import ReadFile
-        import GetLastError
-        import CreateFileA
+        MOV RSI, RAX
+        IMPORT ExitProcess
+        IMPORT GetStdHandle
+        IMPORT WriteFile
+        IMPORT ReadFile
+        IMPORT GetLastError
+        IMPORT CreateFileA
 
-        lea tp, program
-        next
-
-    ; --
-    primitive clrs
-        lea rp, stack_base(rstack)
-        next
+        LEA TP, PROGRAM
+        NEXT
 
     ; --
-    impl proc
-        sub rp, 8
-        mov [rp], tp
-        lea tp, [wp + 8]
-        next
+    PRIMITIVE CLRS
+        LEA RP, STACK_BASE(RSTACK)
+        NEXT
 
     ; --
-    primitive return
-        mov tp, [rp]
-        add rp, 8
-        next
+    IMPL PROC
+        SUB RP, 8
+        MOV [RP], TP
+        LEA TP, [WP + 8]
+        NEXT
 
     ; --
-    primitive clds
-        lea dp, stack_base(dstack)
-        next
-
-    ; -- value
-    primitive lit
-        mov rax, [tp]
-        add tp, 8
-        sub dp, 8
-        mov [dp], rax
-        next
-
-    ; code --
-    primitive exit
-        mov rcx, [dp]
-        call_import ExitProcess
-
-    ; -- constant
-    impl const
-        mov rax, [wp + 8]
-        sub dp, 8
-        mov [dp], rax
-        next
-
-    ; value ptr --
-    primitive store
-        mov rax, [dp]
-        mov rbx, [dp + 8]
-        add dp, 8 * 2
-        mov [rax], rbx
-        next
-
-    ; ptr -- value
-    primitive load
-        mov rax, [dp]
-        mov rax, [rax]
-        mov [dp], rax
-        next
-
-    ; id -- handle?
-    primitive handle
-        mov rcx, [dp]
-        call_import GetStdHandle
-        cmp rax, -1
-        je .invalid
-        test rax, rax
-        jz .invalid
-        mov [dp], rax
-        next
-
-        .invalid:
-        xor rax, rax
-        mov [dp], rax
-        next
-
-    ; ptr size handle -- success?
-    primitive wfile
-        mov rcx, [dp]
-        mov rdx, [dp + 16]
-        mov r8, [dp + 8]
-        lea r9, [rsp + 8 * 5]
-        xor rax, rax
-        mov [rsp + 8 * 4], rax
-        call_import WriteFile
-        add dp, 8 * 2
-        mov [dp], rax
-        next
-
-    ; a -- a a
-    primitive copy
-        mov rax, [dp]
-        sub dp, 8
-        mov [dp], rax
-        next
+    PRIMITIVE RETURN
+        MOV TP, [RP]
+        ADD RP, 8
+        NEXT
 
     ; --
-    primitive crash
-        xor rcx, rcx
-        int 0x29 ; fast_fail_fatal_app_exit
+    PRIMITIVE CLDS
+        LEA DP, STACK_BASE(DSTACK)
+        NEXT
 
-    ; -- ptr size
-    impl str
-        movzx rax, byte [wp + 8]
-        lea rbx, [wp + 9]
-        sub dp, 8 * 2
-        mov [dp], rax
-        mov [dp + 8], rbx
-        next
+    ; -- VALUE
+    PRIMITIVE LIT
+        MOV RAX, [TP]
+        ADD TP, 8
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
 
-    ; value --
-    primitive drop
-        add dp, 8
-        next
+    ; CODE --
+    PRIMITIVE EXIT
+        MOV RCX, [DP]
+        CALL_IMPORT ExitProcess
 
-    ; buffer size handle -- bytes-read success?
-    primitive rfile
-        mov rcx, [dp]
-        mov rdx, [dp + 16]
-        mov r8, [dp + 8]
-        lea r9, [rsp + 8 * 5]
-        xor rax, rax
-        mov [rsp + 8 * 4], rax
-        call_import ReadFile
-        add dp, 8
-        mov [dp], rax
-        mov rax, [rsp + 8 * 5]
-        mov [dp + 8], rax
-        next
+    ; -- CONSTANT
+    IMPL CONST
+        MOV RAX, [WP + 8]
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
 
-    ; value --
-    primitive branch
-        mov rax, [dp]
-        add dp, 8
-        mov rbx, [tp]
-        add tp, 8
-        test rax, rax
-        jz .zeroes
-        add tp, rbx
+    ; VALUE PTR --
+    PRIMITIVE STORE
+        MOV RAX, [DP]
+        MOV RBX, [DP + 8]
+        ADD DP, 8 * 2
+        MOV [RAX], RBX
+        NEXT
 
-        .zeroes:
-        next
+    ; PTR -- VALUE
+    PRIMITIVE LOAD
+        MOV RAX, [DP]
+        MOV RAX, [RAX]
+        MOV [DP], RAX
+        NEXT
 
-    ; --
-    primitive jump
-        mov rax, [tp]
-        lea tp, [tp + rax + 8]
-        next
+    ; ID -- HANDLE?
+    PRIMITIVE HANDLE
+        MOV RCX, [DP]
+        CALL_IMPORT GetStdHandle
+        CMP RAX, -1
+        JE .INVALID
+        TEST RAX, RAX
+        JZ .INVALID
+        MOV [DP], RAX
+        NEXT
 
-    ; a b -- a=b?
-    primitive eq
-        mov rax, [dp]
-        mov rbx, [dp + 8]
-        add dp, 8
-        xor rcx, rcx
-        cmp rax, rbx
-        jne .neq
-        not rcx
+        .INVALID:
+        XOR RAX, RAX
+        MOV [DP], RAX
+        NEXT
 
-        .neq:
-        mov [dp], rcx
-        next
+    ; PTR SIZE HANDLE -- SUCCESS?
+    PRIMITIVE WFILE
+        MOV RCX, [DP]
+        MOV RDX, [DP + 16]
+        MOV R8, [DP + 8]
+        LEA R9, [RSP + 8 * 5]
+        XOR RAX, RAX
+        MOV [RSP + 8 * 4], RAX
+        CALL_IMPORT WriteFile
+        ADD DP, 8 * 2
+        MOV [DP], RAX
+        NEXT
 
-    ; -- last-error
-    primitive error
-        call_import GetLastError
-        sub dp, 8
-        mov [dp], rax
-        next
-
-    ; entry-ptr -- entry-name length
-    primitive de_name
-        mov rax, [dp]
-        add rax, 8
-        movzx rbx, byte [rax]
-        and rbx, 0x7f
-        lea rax, [rax + 1]
-        mov [dp], rax
-        sub dp, 8
-        mov [dp], rbx
-        next
-
-    ; entry-ptr -- entry-is-immediate?
-    primitive de_imm
-        mov rax, [dp]
-        add rax, 8
-        movzx rbx, byte [rax]
-        xor rax, rax
-        test rbx, 0x80
-        jz .zeroes
-        not rax
-
-        .zeroes:
-        mov [dp], rax
-        next
-
-    ; a b -- a b a
-    primitive over
-        mov rax, [dp + 8]
-        sub dp, 8
-        mov [dp], rax
-        next
-
-    ; a b -- a+b
-    primitive add
-        mov rax, [dp]
-        add dp, 8
-        add [dp], rax
-        next
-
-    ; a b -- a-b
-    primitive sub
-        mov rax, [dp]
-        add dp, 8
-        sub [dp], rax
-        next
-
-    ; ptr -- new-ptr
-    primitive prs_ws
-        mov rax, [dp]
-        jmp .next_char
-
-        .consume:
-        add rax, 1
-
-        .next_char:
-        movzx rbx, byte [rax]
-        cmp rbx, ` `
-        je .consume
-        cmp rbx, `\t`
-        je .consume
-        cmp rbx, `\n`
-        je .consume
-        cmp rbx, `\r`
-        je .consume
-
-        mov [dp], rax
-        next
-
-    ; ptr -- new-ptr
-    primitive prs_nws
-        mov rax, [dp]
-
-        .next_char:
-        movzx rbx, byte [rax]
-        cmp rbx, ` `
-        je .exit
-        cmp rbx, `\t`
-        je .exit
-        cmp rbx, `\n`
-        je .exit
-        cmp rbx, `\r`
-        je .exit
-        cmp rbx, 0
-        je .exit
-        add rax, 1
-        jmp .next_char
-
-        .exit:
-        mov [dp], rax
-        next
-
-    ; byte ptr --
-    primitive bstore
-        mov rax, [dp]
-        mov rbx, [dp + 8]
-        add dp, 8 * 2
-        mov [rax], bl
-        next
-
-    ; ptr -- byte
-    primitive bload
-        mov rax, [dp]
-        movzx rax, byte [rax]
-        mov [dp], rax
-        next
-
-    ; a b -- a>b
-    primitive gt
-        mov rax, [dp + 8]
-        mov rbx, [dp]
-        add dp, 8
-        xor rcx, rcx
-        cmp rax, rbx
-        jle .le
-        not rcx
-
-        .le:
-        mov [dp], rcx
-        next
-
-    ; string length destination --
-    primitive scopy
-        mov rdi, [dp]
-        mov rcx, [dp + 8]
-        mov rsi, [dp + 8 * 2]
-        add dp, 8 * 3
-        rep movsb
-        next
-
-    ; a b -- b a
-    primitive swap
-        mov rax, [dp]
-        mov rbx, [dp + 8]
-        mov [dp], rbx
-        mov [dp + 8], rax
-        next
-
-    ; value --
-    primitive push
-        mov rax, [dp]
-        add dp, 8
-        sub rp, 8
-        mov [rp], rax
-        next
-
-    ; -- top
-    primitive pop
-        mov rax, [rp]
-        add rp, 8
-        sub dp, 8
-        mov [dp], rax
-        next
-
-    ; a a-length b b-length -- equal?
-    primitive seq
-        mov rcx, [dp]
-        mov rdx, [dp + 8 * 2]
-        mov rsi, [dp + 8]
-        mov rdi, [dp + 8 * 3]
-        add dp, 8 * 3
-        cmp rcx, rdx
-        jne .neq
-
-        repe cmpsb
-        test rcx, rcx
-        jnz .neq
-
-        movzx rax, byte [rsi - 1]
-        movzx rbx, byte [rdi - 1]
-        cmp rax, rbx
-        jne .neq
-
-        xor rax, rax
-        not rax
-        mov [dp], rax
-        next
-
-        .neq:
-        xor rax, rax
-        mov [dp], rax
-        next
-
-    ; ptr -- aligned-ptr
-    primitive calign
-        mov rax, [dp]
-        and rax, 7
-        sub rax, 8
-        neg rax
-        and rax, 7
-        add [dp], rax
-        next
-
-    ; callable --
-    primitive invoke
-        mov rax, [dp]
-        add dp, 8
-        mov wp, rax
-        run
-
-    ; a -- ~a
-    primitive not
-        not qword [dp]
-        next
-
-    ; a b -- a|b
-    primitive or
-        mov rax, [dp]
-        add dp, 8
-        or [dp], rax
-        next
-
-    ; string length -- n number?
-    primitive number
-        mov rax, [dp + 8]
-        mov rbx, [dp]
-
-        movzx rcx, byte [rax]
-        xor r10, r10
-        cmp rcx, `-`
-        jne .not_negative
-        not r10
-        add rax, 1
-        sub rbx, 1
-        jz .not_number
-        movzx rcx, byte [rax]
-
-        .not_negative:
-        cmp rcx, `0`
-        jl .not_number
-        cmp rcx, `9`
-        jg .not_number
-
-        xor rcx, rcx
-
-        .next:
-        movzx rdx, byte [rax]
-        sub rdx, `0`
-        imul rcx, 10
-        add rcx, rdx
-        add rax, 1
-        sub rbx, 1
-        jnz .next
-
-        test r10, r10
-        jz .no_negate
-        neg rcx
-
-        .no_negate:
-        mov [dp + 8], rcx
-        mov qword [dp], -1
-        next
-
-        .not_number:
-        mov qword [dp], 0
-        next
-
-    ; ptr -- new-ptr
-    primitive prs_nl
-        mov rax, [dp]
-
-        .next_char:
-        movzx rbx, byte [rax]
-        cmp rbx, `\n`
-        je .exit
-        add rax, 1
-        jmp .next_char
-
-        .exit:
-        mov [dp], rax
-        next
-
-    ; name -- handle-or-invalid
-    primitive open
-        mov rcx, [dp]
-		mov rdx, 0x80000000 ; GENERIC_READ
-		xor r8, r8
-		xor r9, r9
-		mov qword [rsp + 8 * 4], 3 ; OPEN_EXISTING
-		mov qword [rsp + 8 * 5], 0x80 ; FILE_ATTRIBUTE_NORMAL
-		mov qword [rsp + 8 * 6], r9
-		call_import CreateFileA
-		cmp rax, -1
-		jne .success
-		mov rax, 0
-
-		.success:
-		mov [dp], rax
-		next
-
-section .rdata
-    align 8
-    program:
-        da clrs
-        da clds
-        da init
-        da in_fill
-        branch_to .exit
-
-        .next_input:
-        da prs_nxt
-        branch_to .exit
-        da prs_wrd
-        da copy
-        da ones
-        da eq
-        da not
-        branch_to .good
-        da drop
-        da drop
-        da etok
-        da print
-        da abort
-
-        .good:
-        da number
-        branch_to .number
-        da drop
-        da prs_wrd
-        da find
-        da copy
-        branch_to .found
-        da drop
-        da prs_wrd
-        da print
-        da efind
-        da print
-        da abort
-
-        .found:
-        da copy
-        da de_imm
-        da swap
-        da de_name
-        da add
-        da calign
-        da swap
-        da mode
-        da load
-        da not
-        da or
-        branch_to .invoke
-        da asm
-        jump_to .next_input
-
-        .number:
-        da mode
-        da load
-        da not
-        branch_to .next_input
-        literal address(lit)
-        da asm
-        da asm
-        jump_to .next_input
-
-        .invoke:
-        da invoke
-        jump_to .next_input
-
-        .exit:
-        da zeroes
-        da exit
-
-    procedure abort
-        da ones
-        da exit
-
-    immediate
-    procedure flush
-        .again:
-        da in_ptr
-        da load
-        da prs_nl
-        da in_adv
-        branch_to .eof
-        branch_to .again
-        da return
-
-        .eof:
-        da drop
-        da return
+    ; A -- A A
+    PRIMITIVE COPY
+        MOV RAX, [DP]
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
 
     ; --
-    procedure init
-        da init_io
-        da kernel
-        da dict
-        da store
-        da arena
-        da zeroes
-        da mode
-        da store
-        da here
-        da store
-        da return
+    PRIMITIVE CRASH
+        XOR RCX, RCX
+        INT 0X29 ; FAST_FAIL_FATAL_APP_EXIT
 
-    variable dict, 1
+    ; -- PTR SIZE
+    IMPL STR
+        MOVZX RAX, BYTE [WP + 8]
+        LEA RBX, [WP + 9]
+        SUB DP, 8 * 2
+        MOV [DP], RAX
+        MOV [DP + 8], RBX
+        NEXT
 
-    variable stdin, 1
-    variable stdout, 1
+    ; VALUE --
+    PRIMITIVE DROP
+        ADD DP, 8
+        NEXT
 
-    string libname, `init.mini`
+    ; BUFFER SIZE HANDLE -- BYTES-READ SUCCESS?
+    PRIMITIVE RFILE
+        MOV RCX, [DP]
+        MOV RDX, [DP + 16]
+        MOV R8, [DP + 8]
+        LEA R9, [RSP + 8 * 5]
+        XOR RAX, RAX
+        MOV [RSP + 8 * 4], RAX
+        CALL_IMPORT ReadFile
+        ADD DP, 8
+        MOV [DP], RAX
+        MOV RAX, [RSP + 8 * 5]
+        MOV [DP + 8], RAX
+        NEXT
 
-    ; --
-    procedure init_io
-        literal -10
-        da handle
-        da assert
-        da stdin
-        da store
+    ; VALUE --
+    PRIMITIVE BRANCH
+        MOV RAX, [DP]
+        ADD DP, 8
+        MOV RBX, [TP]
+        ADD TP, 8
+        TEST RAX, RAX
+        JZ .ZEROES
+        ADD TP, RBX
 
-        literal -11
-        da handle
-        da assert
-        da stdout
-        da store
-
-        da libname
-        da drop
-        da open
-        da copy
-        da zeroes
-        da eq
-        da not
-        branch_to .good
-        da einit
-        da print
-        da abort
-
-        .good:
-        da in
-        da store
-
-        da return
-
-    string einit, `init.mini not found\n`
-
-    ; ptr size --
-    procedure print
-        da stdout
-        da load
-        da wfile
-        da assert
-        da drop
-        da return
-
-    variable in_buf, (config_in_buf_size / 8) + 1
-    variable in_end, 1
-    constant in_lim, config_in_buf_size
-    variable in, 1
-
-    ; -- eof?
-    procedure in_fill
-        da in_buf
-        da copy
-        da in_ptr
-        da store
-        da in_lim
-        da in
-        da load
-        da rfile
-        branch_to .success
-        da error
-        literal 0x6d
-        da eq
-        branch_to .success
-        da crash
-
-        .success:
-        da copy
-        da in_buf
-        da add
-        da zeroes
-        da over
-        da bstore
-        da in_end
-        da store
-        da zeroes
-        da eq
-        da return
-
-    ; value -- value
-    procedure assert
-        da copy
-        da zeroes
-        da eq
-        da not
-        branch_to .ok
-        da crash
-
-        .ok:
-        da return
-
-    constant zeroes, 0
-    variable in_ptr, 1
-
-    ; -- eof?
-    procedure prs_nxt
-        da prs_buf
-        da prs_ptr
-        da store
-
-        da prs_rms
-        branch_to .eof
-
-        da prs_rd
-        branch_to .eof
-
-        da zeroes
-        da return
-
-        .eof:
-        da ones
-        da return
-
-    ; string length --
-    procedure prs_mov
-        da prs_ptr
-        da load
-        da over
-        da over
-        da add
-        da prs_ptr
-        da store
-
-        da scopy
-        da return
-
-    ; -- eof?
-    procedure prs_rd
-        .again:
-        da in_ptr
-        da load
-        da copy
-        da prs_nws
-        da over
-        da over
-        da over
-        da sub
-        da copy
-        da prs_res
-        branch_to .too_long
-        da prs_mov
-        da swap
-        da drop
-        da in_adv
-        branch_to .eof
-        branch_to .again
-
-        da zeroes
-        da return
-
-        .eof:
-        da drop
-        da ones
-        da return
-
-        .too_long:
-        da drop
-        da drop
-        da drop
-        da drop
-        da prs_buf
-        literal 1
-        da sub
-        da prs_ptr
-        da store
-        da zeroes
-        da return
-
-    ; length -- too-long?
-    procedure prs_res
-        da prs_sz
-        da add
-        da prs_lim
-        da gt
-        da return
-
-    ; -- string length
-    procedure prs_wrd
-        da prs_buf
-        da prs_ptr
-        da load
-        da over
-        da sub
-        da return
-
-    ; -- occupied-bytes
-    procedure prs_sz
-        da prs_ptr
-        da load
-        da prs_buf
-        da sub
-        da return
-
-    ; -- eof?
-    procedure prs_rms
-        .again:
-        da in_ptr
-        da load
-        da prs_ws
-        da in_adv
-        branch_to .eof
-        branch_to .again
-        da zeroes
-        da return
-
-        .eof:
-        da drop
-        da ones
-        da return
-
-    constant ones, ~0
-
-    ; read-ptr -- fresh-input? eof?
-    procedure in_adv
-        da copy
-        da in_ptr
-        da store
-        da in_end
-        da load
-        da eq
-        da copy
-        branch_to .refill
-        da zeroes
-        da return
-
-        .refill:
-        da in_fill
-        da return
-
-    variable prs_buf, config_prs_buffer_size / 8
-    constant prs_lim, config_prs_buffer_size
-    variable prs_ptr, 1
-
-    name kernel32, "kernel32.dll"
-    name ExitProcess, "ExitProcess"
-    name GetStdHandle, "GetStdHandle"
-    name WriteFile, "WriteFile"
-    name ReadFile, "ReadFile"
-    name GetLastError, "GetLastError"
-    name CreateFileA, "CreateFileA"
-
-    string etok, `Token too long\n`
-    string efind, ` not found\n`
-
-    ; name length -- entry?
-    procedure find
-        da dict
-        da load
-        da push
-
-        .next:
-        da over
-        da over
-        da pop
-        da copy
-        da push
-        da de_name
-        da seq
-        branch_to .found
-        da pop
-        da load
-        da copy
-        da push
-        branch_to .next
-
-        .found:
-        da drop
-        da drop
-        da pop
-        da return
-
-    variable mode, 1
-    variable arena, config_arena_size / 8
-    variable here, 1
-    constant limit, config_arena_size
+        .ZEROES:
+        NEXT
 
     ; --
-    procedure begin
-        da ones
-        da mode
-        da store
-        da return
+    PRIMITIVE JUMP
+        MOV RAX, [TP]
+        LEA TP, [TP + RAX + 8]
+        NEXT
+
+    ; A B -- A=B?
+    PRIMITIVE EQ
+        MOV RAX, [DP]
+        MOV RBX, [DP + 8]
+        ADD DP, 8
+        XOR RCX, RCX
+        CMP RAX, RBX
+        JNE .NEQ
+        NOT RCX
+
+        .NEQ:
+        MOV [DP], RCX
+        NEXT
+
+    ; -- LAST-ERROR
+    PRIMITIVE ERROR
+        CALL_IMPORT GetLastError
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
+
+    ; ENTRY-PTR -- ENTRY-NAME LENGTH
+    PRIMITIVE DE_NAME
+        MOV RAX, [DP]
+        ADD RAX, 8
+        MOVZX RBX, BYTE [RAX]
+        AND RBX, 0X7F
+        LEA RAX, [RAX + 1]
+        MOV [DP], RAX
+        SUB DP, 8
+        MOV [DP], RBX
+        NEXT
+
+    ; ENTRY-PTR -- ENTRY-IS-IMMEDIATE?
+    PRIMITIVE DE_IMM
+        MOV RAX, [DP]
+        ADD RAX, 8
+        MOVZX RBX, BYTE [RAX]
+        XOR RAX, RAX
+        TEST RBX, 0X80
+        JZ .ZEROES
+        NOT RAX
+
+        .ZEROES:
+        MOV [DP], RAX
+        NEXT
+
+    ; A B -- A B A
+    PRIMITIVE OVER
+        MOV RAX, [DP + 8]
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
+
+    ; A B -- A+B
+    PRIMITIVE ADD
+        MOV RAX, [DP]
+        ADD DP, 8
+        ADD [DP], RAX
+        NEXT
+
+    ; A B -- A-B
+    PRIMITIVE SUB
+        MOV RAX, [DP]
+        ADD DP, 8
+        SUB [DP], RAX
+        NEXT
+
+    ; PTR -- NEW-PTR
+    PRIMITIVE PRS_WS
+        MOV RAX, [DP]
+        JMP .NEXT_CHAR
+
+        .CONSUME:
+        ADD RAX, 1
+
+        .NEXT_CHAR:
+        MOVZX RBX, BYTE [RAX]
+        CMP RBX, ` `
+        JE .CONSUME
+        CMP RBX, `\t`
+        JE .CONSUME
+        CMP RBX, `\n`
+        JE .CONSUME
+        CMP RBX, `\r`
+        JE .CONSUME
+
+        MOV [DP], RAX
+        NEXT
+
+    ; PTR -- NEW-PTR
+    PRIMITIVE PRS_NWS
+        MOV RAX, [DP]
+
+        .NEXT_CHAR:
+        MOVZX RBX, BYTE [RAX]
+        CMP RBX, ` `
+        JE .EXIT
+        CMP RBX, `\t`
+        JE .EXIT
+        CMP RBX, `\n`
+        JE .EXIT
+        CMP RBX, `\r`
+        JE .EXIT
+        CMP RBX, 0
+        JE .EXIT
+        ADD RAX, 1
+        JMP .NEXT_CHAR
+
+        .EXIT:
+        MOV [DP], RAX
+        NEXT
+
+    ; BYTE PTR --
+    PRIMITIVE BSTORE
+        MOV RAX, [DP]
+        MOV RBX, [DP + 8]
+        ADD DP, 8 * 2
+        MOV [RAX], BL
+        NEXT
+
+    ; PTR -- BYTE
+    PRIMITIVE BLOAD
+        MOV RAX, [DP]
+        MOVZX RAX, BYTE [RAX]
+        MOV [DP], RAX
+        NEXT
+
+    ; A B -- A>B
+    PRIMITIVE GT
+        MOV RAX, [DP + 8]
+        MOV RBX, [DP]
+        ADD DP, 8
+        XOR RCX, RCX
+        CMP RAX, RBX
+        JLE .LE
+        NOT RCX
+
+        .LE:
+        MOV [DP], RCX
+        NEXT
+
+    ; STRING LENGTH DESTINATION --
+    PRIMITIVE SCOPY
+        MOV RDI, [DP]
+        MOV RCX, [DP + 8]
+        MOV RSI, [DP + 8 * 2]
+        ADD DP, 8 * 3
+        REP MOVSB
+        NEXT
+
+    ; A B -- B A
+    PRIMITIVE SWAP
+        MOV RAX, [DP]
+        MOV RBX, [DP + 8]
+        MOV [DP], RBX
+        MOV [DP + 8], RAX
+        NEXT
+
+    ; VALUE --
+    PRIMITIVE PUSH
+        MOV RAX, [DP]
+        ADD DP, 8
+        SUB RP, 8
+        MOV [RP], RAX
+        NEXT
+
+    ; -- TOP
+    PRIMITIVE POP
+        MOV RAX, [RP]
+        ADD RP, 8
+        SUB DP, 8
+        MOV [DP], RAX
+        NEXT
+
+    ; A A-LENGTH B B-LENGTH -- EQUAL?
+    PRIMITIVE SEQ
+        MOV RCX, [DP]
+        MOV RDX, [DP + 8 * 2]
+        MOV RSI, [DP + 8]
+        MOV RDI, [DP + 8 * 3]
+        ADD DP, 8 * 3
+        CMP RCX, RDX
+        JNE .NEQ
+
+        REPE CMPSB
+        TEST RCX, RCX
+        JNZ .NEQ
+
+        MOVZX RAX, BYTE [RSI - 1]
+        MOVZX RBX, BYTE [RDI - 1]
+        CMP RAX, RBX
+        JNE .NEQ
+
+        XOR RAX, RAX
+        NOT RAX
+        MOV [DP], RAX
+        NEXT
+
+        .NEQ:
+        XOR RAX, RAX
+        MOV [DP], RAX
+        NEXT
+
+    ; PTR -- ALIGNED-PTR
+    PRIMITIVE CALIGN
+        MOV RAX, [DP]
+        AND RAX, 7
+        SUB RAX, 8
+        NEG RAX
+        AND RAX, 7
+        ADD [DP], RAX
+        NEXT
+
+    ; CALLABLE --
+    PRIMITIVE INVOKE
+        MOV RAX, [DP]
+        ADD DP, 8
+        MOV WP, RAX
+        RUN
+
+    ; A -- ~A
+    PRIMITIVE NOT
+        NOT QWORD [DP]
+        NEXT
+
+    ; A B -- A|B
+    PRIMITIVE OR
+        MOV RAX, [DP]
+        ADD DP, 8
+        OR [DP], RAX
+        NEXT
+
+    ; STRING LENGTH -- N NUMBER?
+    PRIMITIVE NUMBER
+        MOV RAX, [DP + 8]
+        MOV RBX, [DP]
+
+        MOVZX RCX, BYTE [RAX]
+        XOR R10, R10
+        CMP RCX, `-`
+        JNE .NOT_NEGATIVE
+        NOT R10
+        ADD RAX, 1
+        SUB RBX, 1
+        JZ .NOT_NUMBER
+        MOVZX RCX, BYTE [RAX]
+
+        .NOT_NEGATIVE:
+        CMP RCX, `0`
+        JL .NOT_NUMBER
+        CMP RCX, `9`
+        JG .NOT_NUMBER
+
+        XOR RCX, RCX
+
+        .NEXT:
+        MOVZX RDX, BYTE [RAX]
+        SUB RDX, `0`
+        IMUL RCX, 10
+        ADD RCX, RDX
+        ADD RAX, 1
+        SUB RBX, 1
+        JNZ .NEXT
+
+        TEST R10, R10
+        JZ .NO_NEGATE
+        NEG RCX
+
+        .NO_NEGATE:
+        MOV [DP + 8], RCX
+        MOV QWORD [DP], -1
+        NEXT
+
+        .NOT_NUMBER:
+        MOV QWORD [DP], 0
+        NEXT
+
+    ; PTR -- NEW-PTR
+    PRIMITIVE PRS_NL
+        MOV RAX, [DP]
+
+        .NEXT_CHAR:
+        MOVZX RBX, BYTE [RAX]
+        CMP RBX, `\n`
+        JE .EXIT
+        ADD RAX, 1
+        JMP .NEXT_CHAR
+
+        .EXIT:
+        MOV [DP], RAX
+        NEXT
+
+    ; NAME -- HANDLE-OR-INVALID
+    PRIMITIVE OPEN
+        MOV RCX, [DP]
+		MOV RDX, 0X80000000 ; GENERIC_READ
+		XOR R8, R8
+		XOR R9, R9
+		MOV QWORD [RSP + 8 * 4], 3 ; OPEN_EXISTING
+		MOV QWORD [RSP + 8 * 5], 0X80 ; FILE_ATTRIBUTE_NORMAL
+		MOV QWORD [RSP + 8 * 6], R9
+		CALL_IMPORT CreateFileA
+		CMP RAX, -1
+		JNE .SUCCESS
+		MOV RAX, 0
+
+		.SUCCESS:
+		MOV [DP], RAX
+		NEXT
+
+SECTION .rdata
+    ALIGN 8
+    PROGRAM:
+        DA CLRS
+        DA CLDS
+        DA INIT
+        DA IN_FILL
+        BRANCH_TO .EXIT
+
+        .NEXT_INPUT:
+        DA PRS_NXT
+        BRANCH_TO .EXIT
+        DA PRS_WRD
+        DA COPY
+        DA ONES
+        DA EQ
+        DA NOT
+        BRANCH_TO .GOOD
+        DA DROP
+        DA DROP
+        DA ETOK
+        DA PRINT
+        DA ABORT
+
+        .GOOD:
+        DA NUMBER
+        BRANCH_TO .NUMBER
+        DA DROP
+        DA PRS_WRD
+        DA FIND
+        DA COPY
+        BRANCH_TO .FOUND
+        DA DROP
+        DA PRS_WRD
+        DA PRINT
+        DA EFIND
+        DA PRINT
+        DA ABORT
+
+        .FOUND:
+        DA COPY
+        DA DE_IMM
+        DA SWAP
+        DA DE_NAME
+        DA ADD
+        DA CALIGN
+        DA SWAP
+        DA MODE
+        DA LOAD
+        DA NOT
+        DA OR
+        BRANCH_TO .INVOKE
+        DA ASM
+        JUMP_TO .NEXT_INPUT
+
+        .NUMBER:
+        DA MODE
+        DA LOAD
+        DA NOT
+        BRANCH_TO .NEXT_INPUT
+        LITERAL ADDRESS(LIT)
+        DA ASM
+        DA ASM
+        JUMP_TO .NEXT_INPUT
+
+        .INVOKE:
+        DA INVOKE
+        JUMP_TO .NEXT_INPUT
+
+        .EXIT:
+        DA ZEROES
+        DA EXIT
+
+    PROCEDURE ABORT
+        DA ONES
+        DA EXIT
+
+    IMMEDIATE
+    PROCEDURE FLUSH
+        .AGAIN:
+        DA IN_PTR
+        DA LOAD
+        DA PRS_NL
+        DA IN_ADV
+        BRANCH_TO .EOF
+        BRANCH_TO .AGAIN
+        DA RETURN
+
+        .EOF:
+        DA DROP
+        DA RETURN
 
     ; --
-    immediate
-    procedure end
-        da zeroes
-        da mode
-        da store
-        da return
+    PROCEDURE INIT
+        DA INIT_IO
+        DA KERNEL
+        DA DICT
+        DA STORE
+        DA ARENA
+        DA ZEROES
+        DA MODE
+        DA STORE
+        DA HERE
+        DA STORE
+        DA RETURN
 
-    ; value --
-    procedure asm
-        da here
-        da load
-        da store
-        da here
-        da copy
-        da load
-        literal 8
-        da add
-        da swap
-        da store
-        da return
+    VARIABLE DICT, 1
 
-    ; value --
-    procedure basm
-        da here
-        da load
-        da bstore
-        da here
-        da copy
-        da load
-        literal 1
-        da add
-        da swap
-        da store
-        da return
+    VARIABLE STDIN, 1
+    VARIABLE STDOUT, 1
 
-    constant ffi, address(imports)
+    STRING LIBNAME, `init.mini`
 
     ; --
-    procedure newhdr
-        da here
-        da load
-        da dict
-        da load
-        da asm
-        da dict
-        da store
-        da prs_nxt
-        da drop
-        da prs_wrd
-        da copy
-        da basm
-        da copy
-        da push
-        da here
-        da load
-        da scopy
-        da pop
-        da here
-        da load
-        da add
-        da here
-        da store
-        da here
-        da load
-        da calign
-        da here
-        da store
-        da return
+    PROCEDURE INIT_IO
+        LITERAL -10
+        DA HANDLE
+        DA ASSERT
+        DA STDIN
+        DA STORE
 
-section .bss
-    rstack:
-        resq stack_depth
+        LITERAL -11
+        DA HANDLE
+        DA ASSERT
+        DA STDOUT
+        DA STORE
 
-    dstack:
-        resq stack_depth
+        DA LIBNAME
+        DA DROP
+        DA OPEN
+        DA COPY
+        DA ZEROES
+        DA EQ
+        DA NOT
+        BRANCH_TO .GOOD
+        DA EINIT
+        DA PRINT
+        DA ABORT
 
-    imports:
+        .GOOD:
+        DA IN
+        DA STORE
+
+        DA RETURN
+
+    STRING EINIT, `INIT.MINI NOT FOUND\n`
+
+    ; PTR SIZE --
+    PROCEDURE PRINT
+        DA STDOUT
+        DA LOAD
+        DA WFILE
+        DA ASSERT
+        DA DROP
+        DA RETURN
+
+    VARIABLE IN_BUF, (CONFIG_IN_BUF_SIZE / 8) + 1
+    VARIABLE IN_END, 1
+    CONSTANT IN_LIM, CONFIG_IN_BUF_SIZE
+    VARIABLE IN, 1
+
+    ; -- EOF?
+    PROCEDURE IN_FILL
+        DA IN_BUF
+        DA COPY
+        DA IN_PTR
+        DA STORE
+        DA IN_LIM
+        DA IN
+        DA LOAD
+        DA RFILE
+        BRANCH_TO .SUCCESS
+        DA ERROR
+        LITERAL 0X6D
+        DA EQ
+        BRANCH_TO .SUCCESS
+        DA CRASH
+
+        .SUCCESS:
+        DA COPY
+        DA IN_BUF
+        DA ADD
+        DA ZEROES
+        DA OVER
+        DA BSTORE
+        DA IN_END
+        DA STORE
+        DA ZEROES
+        DA EQ
+        DA RETURN
+
+    ; VALUE -- VALUE
+    PROCEDURE ASSERT
+        DA COPY
+        DA ZEROES
+        DA EQ
+        DA NOT
+        BRANCH_TO .OK
+        DA CRASH
+
+        .OK:
+        DA RETURN
+
+    CONSTANT ZEROES, 0
+    VARIABLE IN_PTR, 1
+
+    ; -- EOF?
+    PROCEDURE PRS_NXT
+        DA PRS_BUF
+        DA PRS_PTR
+        DA STORE
+
+        DA PRS_RMS
+        BRANCH_TO .EOF
+
+        DA PRS_RD
+        BRANCH_TO .EOF
+
+        DA ZEROES
+        DA RETURN
+
+        .EOF:
+        DA ONES
+        DA RETURN
+
+    ; STRING LENGTH --
+    PROCEDURE PRS_MOV
+        DA PRS_PTR
+        DA LOAD
+        DA OVER
+        DA OVER
+        DA ADD
+        DA PRS_PTR
+        DA STORE
+
+        DA SCOPY
+        DA RETURN
+
+    ; -- EOF?
+    PROCEDURE PRS_RD
+        .AGAIN:
+        DA IN_PTR
+        DA LOAD
+        DA COPY
+        DA PRS_NWS
+        DA OVER
+        DA OVER
+        DA OVER
+        DA SUB
+        DA COPY
+        DA PRS_RES
+        BRANCH_TO .TOO_LONG
+        DA PRS_MOV
+        DA SWAP
+        DA DROP
+        DA IN_ADV
+        BRANCH_TO .EOF
+        BRANCH_TO .AGAIN
+
+        DA ZEROES
+        DA RETURN
+
+        .EOF:
+        DA DROP
+        DA ONES
+        DA RETURN
+
+        .TOO_LONG:
+        DA DROP
+        DA DROP
+        DA DROP
+        DA DROP
+        DA PRS_BUF
+        LITERAL 1
+        DA SUB
+        DA PRS_PTR
+        DA STORE
+        DA ZEROES
+        DA RETURN
+
+    ; LENGTH -- TOO-LONG?
+    PROCEDURE PRS_RES
+        DA PRS_SZ
+        DA ADD
+        DA PRS_LIM
+        DA GT
+        DA RETURN
+
+    ; -- STRING LENGTH
+    PROCEDURE PRS_WRD
+        DA PRS_BUF
+        DA PRS_PTR
+        DA LOAD
+        DA OVER
+        DA SUB
+        DA RETURN
+
+    ; -- OCCUPIED-BYTES
+    PROCEDURE PRS_SZ
+        DA PRS_PTR
+        DA LOAD
+        DA PRS_BUF
+        DA SUB
+        DA RETURN
+
+    ; -- EOF?
+    PROCEDURE PRS_RMS
+        .AGAIN:
+        DA IN_PTR
+        DA LOAD
+        DA PRS_WS
+        DA IN_ADV
+        BRANCH_TO .EOF
+        BRANCH_TO .AGAIN
+        DA ZEROES
+        DA RETURN
+
+        .EOF:
+        DA DROP
+        DA ONES
+        DA RETURN
+
+    CONSTANT ONES, ~0
+
+    ; READ-PTR -- FRESH-INPUT? EOF?
+    PROCEDURE IN_ADV
+        DA COPY
+        DA IN_PTR
+        DA STORE
+        DA IN_END
+        DA LOAD
+        DA EQ
+        DA COPY
+        BRANCH_TO .REFILL
+        DA ZEROES
+        DA RETURN
+
+        .REFILL:
+        DA IN_FILL
+        DA RETURN
+
+    VARIABLE PRS_BUF, CONFIG_PRS_BUFFER_SIZE / 8
+    CONSTANT PRS_LIM, CONFIG_PRS_BUFFER_SIZE
+    VARIABLE PRS_PTR, 1
+
+    NAME KERNEL32, "kernel32.dll"
+    NAME ExitProcess, "ExitProcess"
+    NAME GetStdHandle, "GetStdHandle"
+    NAME WriteFile, "WriteFile"
+    NAME ReadFile, "ReadFile"
+    NAME GetLastError, "GetLastError"
+    NAME CreateFileA, "CreateFileA"
+
+    STRING ETOK, `TOKEN TOO LONG\n`
+    STRING EFIND, ` ?\n`
+
+    ; NAME LENGTH -- ENTRY?
+    PROCEDURE FIND
+        DA DICT
+        DA LOAD
+        DA PUSH
+
+        .NEXT:
+        DA OVER
+        DA OVER
+        DA POP
+        DA COPY
+        DA PUSH
+        DA DE_NAME
+        DA SEQ
+        BRANCH_TO .FOUND
+        DA POP
+        DA LOAD
+        DA COPY
+        DA PUSH
+        BRANCH_TO .NEXT
+
+        .FOUND:
+        DA DROP
+        DA DROP
+        DA POP
+        DA RETURN
+
+    VARIABLE MODE, 1
+    VARIABLE ARENA, CONFIG_ARENA_SIZE / 8
+    VARIABLE HERE, 1
+    CONSTANT LIMIT, CONFIG_ARENA_SIZE
+
+    ; --
+    PROCEDURE BEGIN
+        DA ONES
+        DA MODE
+        DA STORE
+        DA RETURN
+
+    ; --
+    IMMEDIATE
+    PROCEDURE END
+        DA ZEROES
+        DA MODE
+        DA STORE
+        DA RETURN
+
+    ; VALUE --
+    PROCEDURE ASM
+        DA HERE
+        DA LOAD
+        DA STORE
+        DA HERE
+        DA COPY
+        DA LOAD
+        LITERAL 8
+        DA ADD
+        DA SWAP
+        DA STORE
+        DA RETURN
+
+    ; VALUE --
+    PROCEDURE BASM
+        DA HERE
+        DA LOAD
+        DA BSTORE
+        DA HERE
+        DA COPY
+        DA LOAD
+        LITERAL 1
+        DA ADD
+        DA SWAP
+        DA STORE
+        DA RETURN
+
+    CONSTANT FFI, ADDRESS(IMPORTS)
+
+    ; --
+    PROCEDURE NEWHDR
+        DA HERE
+        DA LOAD
+        DA DICT
+        DA LOAD
+        DA ASM
+        DA DICT
+        DA STORE
+        DA PRS_NXT
+        DA DROP
+        DA PRS_WRD
+        DA COPY
+        DA BASM
+        DA COPY
+        DA PUSH
+        DA HERE
+        DA LOAD
+        DA SCOPY
+        DA POP
+        DA HERE
+        DA LOAD
+        DA ADD
+        DA HERE
+        DA STORE
+        DA HERE
+        DA LOAD
+        DA CALIGN
+        DA HERE
+        DA STORE
+        DA RETURN
+
+SECTION .bss
+    RSTACK:
+        RESQ STACK_DEPTH
+
+    DSTACK:
+        RESQ STACK_DEPTH
+
+    IMPORTS:
     GetProcAddress:
-        resq 1
+        RESQ 1
 
     GetModuleHandleA:
-        resq 1
+        RESQ 1
 
     ExitProcess:
-        resq 1
+        RESQ 1
 
     GetStdHandle:
-        resq 1
+        RESQ 1
 
     WriteFile:
-        resq 1
+        RESQ 1
 
     ReadFile:
-        resq 1
+        RESQ 1
 
     GetLastError:
-        resq 1
+        RESQ 1
 
     CreateFileA:
-        resq 1
+        RESQ 1
 
-section .rdata
-    finalize_dictionary kernel
+SECTION .rdata
+    FINALIZE_DICTIONARY KERNEL
 
-section .bss
-    bss_end:
+SECTION .bss
+    BSS_END:
 
-section .rdata
-    align 8
-    dq bss_end - bss_start
+SECTION .rdata
+    ALIGN 8
+    DQ BSS_END - BSS_START

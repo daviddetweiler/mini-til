@@ -1,144 +1,144 @@
-flush Some useful procedures
+FLUSH SOME USEFUL PROCEDURES
 
-flush --
-newhdr immediate
-proc asm
-begin
-    dict load
-    8 add
-    copy bload
-    128 or
-    swap bstore
-    return
-end
+FLUSH --
+NEWHDR IMMEDIATE
+PROC ASM
+BEGIN
+    DICT LOAD
+    8 ADD
+    COPY BLOAD
+    128 OR
+    SWAP BSTORE
+    RETURN
+END
 
-flush --
-flush Assembles the following word regardless of immediacy
-newhdr '
-proc asm
-begin
-    prs_nxt drop
-    prs_wrd find de_name add calign asm
-    return
-end immediate
+FLUSH --
+FLUSH ASSEMBLES THE FOLLOWING WORD REGARDLESS OF IMMEDIACY
+NEWHDR '
+PROC ASM
+BEGIN
+    PRS_NXT DROP
+    PRS_WRD FIND DE_NAME ADD CALIGN ASM
+    RETURN
+END IMMEDIATE
 
 
-flush --
-flush Nicer comment syntax
-newhdr #
-proc asm
-begin
-    ' flush
-    return
-end immediate
+FLUSH --
+FLUSH NICER COMMENT SYNTAX
+NEWHDR #
+PROC ASM
+BEGIN
+    ' FLUSH
+    RETURN
+END IMMEDIATE
 
 # Now we have comments syntax, so lets define function syntax
 
 # --
-newhdr fn:
-proc asm
-begin
-    newhdr
-    proc asm
-    begin
-    return
-end
+NEWHDR FN:
+PROC ASM
+BEGIN
+    NEWHDR
+    PROC ASM
+    BEGIN
+    RETURN
+END
 
 # --
-fn: end-fn
-    lit return asm
-    ' end
-    return
-end immediate
+FN: END-FN
+    LIT RETURN ASM
+    ' END
+    RETURN
+END IMMEDIATE
 
 # Now loops
 
 # -- target
-fn: do
-    here load
-end-fn immediate
+FN: DO
+    HERE LOAD
+END-FN IMMEDIATE
 
 # target --
-fn: loop
-    lit branch asm
-    here load 8 add sub asm
-end-fn immediate
+FN: LOOP
+    LIT BRANCH ASM
+    HERE LOAD 8 ADD SUB ASM
+END-FN IMMEDIATE
 
 # Some output helpers
 
 # --
-fn: defstr:
-    newhdr
-    str asm
-end-fn
+FN: DEFSTR:
+    NEWHDR
+    STR ASM
+END-FN
 
-defstr: nl
-1 basm
-10 basm
-0 basm
+DEFSTR: NL
+1 BASM
+10 BASM
+0 BASM
 
 # str len --
-fn: println
-    print nl print
-end-fn
+FN: PRINTLN
+    PRINT NL PRINT
+END-FN
 
 # And a dictionary walk
 
 # ptr --
-fn: walk
-    do
-        copy de_name println
-        load copy
-    loop
+FN: WALK
+    DO
+        COPY DE_NAME PRINTLN
+        LOAD COPY
+    LOOP
 
-    drop
-end-fn
+    DROP
+END-FN
 
-fn: const:
-    newhdr
-    const asm
-    asm
-end-fn
+FN: CONST:
+    NEWHDR
+    CONST ASM
+    ASM
+END-FN
 
-34 const: quotes
+34 CONST: QUOTES
 
 # start end -- start len
-fn: string-from-range
-    over sub
-end-fn
+FN: STRING-FROM-RANGE
+    OVER SUB
+END-FN
 
 # Exceedingly hacky because I haven't implemented conditionals yet; will happily read past the end if the terminating
 # quote is not available
 # -- string length
-fn: s"
-    in_ptr load
-    do
-        1 add
-        copy bload quotes eq not
-    loop
-    in_ptr load 1 add swap
-    copy 1 add in_adv drop drop
-    string-from-range
-end-fn
+FN: S"
+    IN_PTR LOAD
+    DO
+        1 ADD
+        COPY BLOAD QUOTES EQ NOT
+    LOOP
+    IN_PTR LOAD 1 ADD SWAP
+    COPY 1 ADD IN_ADV DROP DROP
+    STRING-FROM-RANGE
+END-FN
 
 # string length --
-fn: string:
-    newhdr
-    str asm
-    copy basm
+FN: STRING:
+    NEWHDR
+    STR ASM
+    COPY BASM
 
-    here load over over add push
-    scopy
+    HERE LOAD OVER OVER ADD PUSH
+    SCOPY
 
-    pop here store
-    0 basm
-end-fn
+    POP HERE STORE
+    0 BASM
+END-FN
 
-s" Mini (C) 2023 David Detweiler" string: banner
-s" Enter `kernel walk` to see the list of instructions defined by the kernel" string: hint
-banner println
-hint println
-nl print
+S" Mini (C) 2023 David Detweiler" STRING: BANNER
+S" Enter `KERNEL WALK` to see the list of instructions defined by the kernel" STRING: HINT
+BANNER PRINTLN
+HINT PRINTLN
+NL PRINT
 
 # The magical part where we yield control back to the terminal
-stdin load in store
+STDIN LOAD IN STORE
