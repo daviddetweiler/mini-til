@@ -1,39 +1,7 @@
-flush This monster defines $, which creates a header based off the name immediately following it.
-
-here load
-
-dict load assemble
-1 assemble_byte
-36 assemble_byte 0 assemble_byte
-here load cell_align here store
-
-proc assemble
-begin
-    here load
-    dict load assemble
-    dict store
-
-    prs_next drop
-    prs_word
-    copy assemble_byte
-    copy push
-    here load string_copy
-    pop here load add here store
-    here load cell_align here store
-
-    return
-end
-
-dict store
-
 flush Some useful procedures
 
-$ header:
-proc assemble
-begin $ return end
-
 flush --
-header: immediate
+newhdr immediate
 proc assemble
 begin
     dict load
@@ -46,7 +14,7 @@ end
 
 flush --
 flush Assembles the following word regardless of immediacy
-header: '
+newhdr '
 proc assemble
 begin
     prs_next drop
@@ -56,7 +24,7 @@ end immediate
 
 flush --
 flush Nicer comment syntax
-header: #
+newhdr #
 proc assemble
 begin
     ' flush
@@ -66,10 +34,10 @@ end immediate
 # Now we have comments syntax, so lets define function syntax
 
 # --
-header: fn:
+newhdr fn:
 proc assemble
 begin
-    header:
+    newhdr
     proc assemble
     begin
     return
@@ -99,7 +67,7 @@ end-fn immediate
 
 # --
 fn: defstr:
-    header:
+    newhdr
     str assemble
 end-fn
 
@@ -126,7 +94,7 @@ fn: walk
 end-fn
 
 fn: const:
-    header:
+    newhdr
     const assemble
     assemble
 end-fn
@@ -154,7 +122,7 @@ end-fn
 
 # string length --
 fn: string:
-    header:
+    newhdr
     str assemble
     copy assemble_byte
 

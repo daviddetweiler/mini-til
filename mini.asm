@@ -1051,6 +1051,38 @@ section .rdata
     constant ffi_gpa, address(GetProcAddress)
     constant ffi_gmh, address(GetModuleHandleA)
 
+    ; --
+    procedure newhdr
+        da here
+        da load
+        da dict
+        da load
+        da assemble
+        da dict
+        da store
+        da prs_next
+        da drop
+        da prs_word
+        da copy
+        da assemble_byte
+        da copy
+        da push
+        da here
+        da load
+        da string_copy
+        da pop
+        da here
+        da load
+        da add
+        da here
+        da store
+        da here
+        da load
+        da cell_align
+        da here
+        da store
+        da return
+
 section .bss
     rstack:
         resq stack_depth
