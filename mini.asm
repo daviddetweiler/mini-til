@@ -64,7 +64,7 @@ global boot
 
     %defstr %$name %1
     %assign %$length %strlen(%$name)
-    %if %$length > 127
+    %if %$length > 7
         %error "name too long"
     %endif
 
@@ -75,7 +75,7 @@ global boot
         entry(%$this_entry):
             da entry(top_entry)
             db %$length | this_entry_flag
-            db %$name, 0
+            db %$name
 
     __?SECT?__
 
@@ -329,18 +329,6 @@ section .text
         mov [dp + 8], rax
         next
 
-    ; value -- value=0?
-    primitive eq_zero
-        mov rax, [dp]
-        xor rbx, rbx
-        test rax, rax
-        jnz .nzero
-        not rbx
-
-        .nzero:
-        mov [dp], rbx
-        next
-
     ; value --
     primitive branch
         mov rax, [dp]
@@ -382,7 +370,7 @@ section .text
         next
 
     ; entry-ptr -- entry-name length
-    primitive entry_name
+    primitive de_name
         mov rax, [dp]
         add rax, 8
         movzx rbx, byte [rax]
@@ -394,7 +382,7 @@ section .text
         next
 
     ; entry-ptr -- entry-is-immediate?
-    primitive entry_imm
+    primitive de_imm
         mov rax, [dp]
         add rax, 8
         movzx rbx, byte [rax]
@@ -429,7 +417,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive prs_spaces
+    primitive prs_ws
         mov rax, [dp]
         jmp .next_char
 
@@ -451,7 +439,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive prs_nonspaces
+    primitive prs_nws
         mov rax, [dp]
 
         .next_char:
@@ -474,7 +462,7 @@ section .text
         next
 
     ; byte ptr --
-    primitive store_byte
+    primitive bstore
         mov rax, [dp]
         mov rbx, [dp + 8]
         add dp, 8 * 2
@@ -482,7 +470,7 @@ section .text
         next
 
     ; ptr -- byte
-    primitive load_byte
+    primitive bload
         mov rax, [dp]
         movzx rax, byte [rax]
         mov [dp], rax
@@ -503,7 +491,7 @@ section .text
         next
 
     ; string length destination --
-    primitive string_copy
+    primitive scopy
         mov rdi, [dp]
         mov rcx, [dp + 8]
         mov rsi, [dp + 8 * 2]
@@ -536,7 +524,7 @@ section .text
         next
 
     ; a a-length b b-length -- equal?
-    primitive string_eq
+    primitive seq
         mov rcx, [dp]
         mov rdx, [dp + 8 * 2]
         mov rsi, [dp + 8]
@@ -565,7 +553,7 @@ section .text
         next
 
     ; ptr -- aligned-ptr
-    primitive cell_align
+    primitive calign
         mov rax, [dp]
         and rax, 7
         sub rax, 8
@@ -623,7 +611,7 @@ section .text
         next
 
     ; ptr -- new-ptr
-    primitive prs_line
+    primitive prs_nl
         mov rax, [dp]
 
         .next_char:
@@ -643,13 +631,13 @@ section .rdata
         da clrs
         da clds
         da init
-        da in_refill
+        da in_fill
         branch_to .exit
 
         .next_input:
-        da prs_next
+        da prs_nxt
         branch_to .exit
-        da prs_word
+        da prs_wrd
         da copy
         da ones
         da eq
@@ -657,7 +645,7 @@ section .rdata
         branch_to .good
         da drop
         da drop
-        da msg_tok
+        da etok
         da print
         jump_to .abort
 
@@ -665,31 +653,31 @@ section .rdata
         da number
         branch_to .number
         da drop
-        da prs_word
+        da prs_wrd
         da find
         da copy
         branch_to .found
         da drop
-        da prs_word
+        da prs_wrd
         da print
-        da msg_find
+        da efind
         da print
         jump_to .abort
 
         .found:
         da copy
-        da entry_imm
+        da de_imm
         da swap
-        da entry_name
+        da de_name
         da add
-        da cell_align
+        da calign
         da swap
         da mode
         da load
         da not
         da or
         branch_to .invoke
-        da assemble
+        da asm
         jump_to .next_input
 
         .number:
@@ -698,8 +686,8 @@ section .rdata
         da not
         branch_to .next_input
         literal address(lit)
-        da assemble
-        da assemble
+        da asm
+        da asm
         jump_to .next_input
 
         .invoke:
@@ -719,8 +707,8 @@ section .rdata
         .again:
         da in_ptr
         da load
-        da prs_line
-        da in_update
+        da prs_nl
+        da in_adv
         branch_to .eof
         branch_to .again
         da return
@@ -782,7 +770,7 @@ section .rdata
     constant in_lim, config_in_buf_size
 
     ; -- eof?
-    procedure in_refill
+    procedure in_fill
         da in_buf
         da copy
         da in_ptr
@@ -804,16 +792,18 @@ section .rdata
         da add
         da zeroes
         da over
-        da store_byte
+        da bstore
         da in_end
         da store
-        da eq_zero
+        da zeroes
+        da eq
         da return
 
     ; value -- value
     procedure assert
         da copy
-        da eq_zero
+        da zeroes
+        da eq
         da not
         branch_to .ok
         da crash
@@ -825,15 +815,15 @@ section .rdata
     variable in_ptr, 1
 
     ; -- eof?
-    procedure prs_next
+    procedure prs_nxt
         da prs_buf
         da prs_ptr
         da store
 
-        da prs_strip
+        da prs_rms
         branch_to .eof
 
-        da prs_ingest
+        da prs_rd
         branch_to .eof
 
         da zeroes
@@ -844,7 +834,7 @@ section .rdata
         da return
 
     ; string length --
-    procedure prs_move
+    procedure prs_mov
         da prs_ptr
         da load
         da over
@@ -853,27 +843,27 @@ section .rdata
         da prs_ptr
         da store
 
-        da string_copy
+        da scopy
         da return
 
     ; -- eof?
-    procedure prs_ingest
+    procedure prs_rd
         .again:
         da in_ptr
         da load
         da copy
-        da prs_nonspaces
+        da prs_nws
         da over
         da over
         da over
         da sub
         da copy
-        da prs_alloc
+        da prs_res
         branch_to .too_long
-        da prs_move
+        da prs_mov
         da swap
         da drop
-        da in_update
+        da in_adv
         branch_to .eof
         branch_to .again
 
@@ -899,15 +889,15 @@ section .rdata
         da return
 
     ; length -- too-long?
-    procedure prs_alloc
-        da prs_usage
+    procedure prs_res
+        da prs_sz
         da add
         da prs_lim
         da gt
         da return
 
     ; -- string length
-    procedure prs_word
+    procedure prs_wrd
         da prs_buf
         da prs_ptr
         da load
@@ -916,7 +906,7 @@ section .rdata
         da return
 
     ; -- occupied-bytes
-    procedure prs_usage
+    procedure prs_sz
         da prs_ptr
         da load
         da prs_buf
@@ -924,12 +914,12 @@ section .rdata
         da return
 
     ; -- eof?
-    procedure prs_strip
+    procedure prs_rms
         .again:
         da in_ptr
         da load
-        da prs_spaces
-        da in_update
+        da prs_ws
+        da in_adv
         branch_to .eof
         branch_to .again
         da zeroes
@@ -943,7 +933,7 @@ section .rdata
     constant ones, ~0
 
     ; read-ptr -- fresh-input? eof?
-    procedure in_update
+    procedure in_adv
         da copy
         da in_ptr
         da store
@@ -956,7 +946,7 @@ section .rdata
         da return
 
         .refill:
-        da in_refill
+        da in_fill
         da return
 
     variable prs_buf, config_prs_buffer_size / 8
@@ -970,8 +960,8 @@ section .rdata
     name ReadFile, "ReadFile"
     name GetLastError, "GetLastError"
 
-    string msg_tok, `Token too long\n`
-    string msg_find, ` not found\n`
+    string etok, `Token too long\n`
+    string efind, ` not found\n`
 
     ; name length -- entry?
     procedure find
@@ -985,8 +975,8 @@ section .rdata
         da pop
         da copy
         da push
-        da entry_name
-        da string_eq
+        da de_name
+        da seq
         branch_to .found
         da pop
         da load
@@ -1021,7 +1011,7 @@ section .rdata
         da return
 
     ; value --
-    procedure assemble
+    procedure asm
         da here
         da load
         da store
@@ -1035,10 +1025,10 @@ section .rdata
         da return
 
     ; value --
-    procedure assemble_byte
+    procedure basm
         da here
         da load
-        da store_byte
+        da bstore
         da here
         da copy
         da load
@@ -1057,19 +1047,19 @@ section .rdata
         da load
         da dict
         da load
-        da assemble
+        da asm
         da dict
         da store
-        da prs_next
+        da prs_nxt
         da drop
-        da prs_word
+        da prs_wrd
         da copy
-        da assemble_byte
+        da basm
         da copy
         da push
         da here
         da load
-        da string_copy
+        da scopy
         da pop
         da here
         da load
@@ -1078,7 +1068,7 @@ section .rdata
         da store
         da here
         da load
-        da cell_align
+        da calign
         da here
         da store
         da return

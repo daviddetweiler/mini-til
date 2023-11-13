@@ -2,30 +2,31 @@ flush Some useful procedures
 
 flush --
 newhdr immediate
-proc assemble
+proc asm
 begin
     dict load
     8 add
-    copy load_byte
+    copy bload
     128 or
-    swap store_byte
+    swap bstore
     return
 end
 
 flush --
 flush Assembles the following word regardless of immediacy
 newhdr '
-proc assemble
+proc asm
 begin
-    prs_next drop
-    prs_word find entry_name add cell_align assemble
+    prs_nxt drop
+    prs_wrd find de_name add calign asm
     return
 end immediate
+
 
 flush --
 flush Nicer comment syntax
 newhdr #
-proc assemble
+proc asm
 begin
     ' flush
     return
@@ -35,17 +36,17 @@ end immediate
 
 # --
 newhdr fn:
-proc assemble
+proc asm
 begin
     newhdr
-    proc assemble
+    proc asm
     begin
     return
 end
 
 # --
 fn: end-fn
-    lit return assemble
+    lit return asm
     ' end
     return
 end immediate
@@ -59,8 +60,8 @@ end-fn immediate
 
 # target --
 fn: loop
-    lit branch assemble
-    here load 8 add sub assemble
+    lit branch asm
+    here load 8 add sub asm
 end-fn immediate
 
 # Some output helpers
@@ -68,13 +69,13 @@ end-fn immediate
 # --
 fn: defstr:
     newhdr
-    str assemble
+    str asm
 end-fn
 
 defstr: nl
-1 assemble_byte
-10 assemble_byte
-0 assemble_byte
+1 basm
+10 basm
+0 basm
 
 # str len --
 fn: println
@@ -86,7 +87,7 @@ end-fn
 # ptr --
 fn: walk
     do
-        copy entry_name println
+        copy de_name println
         load copy
     loop
 
@@ -95,8 +96,8 @@ end-fn
 
 fn: const:
     newhdr
-    const assemble
-    assemble
+    const asm
+    asm
 end-fn
 
 34 const: quotes
@@ -113,25 +114,28 @@ fn: s"
     in_ptr load
     do
         1 add
-        copy load_byte quotes eq not
+        copy bload quotes eq not
     loop
     in_ptr load 1 add swap
-    copy 1 add in_update drop drop
+    copy 1 add in_adv drop drop
     string-from-range
 end-fn
 
 # string length --
 fn: string:
     newhdr
-    str assemble
-    copy assemble_byte
+    str asm
+    copy basm
 
     here load over over add push
-    string_copy
+    scopy
 
     pop here store
-    0 assemble_byte
+    0 basm
 end-fn
+
+# NOTE: AttachConsole() could be used to attach an interpreter implemented in a piped-in script to the console of the
+# parent powershell process. I.e. no toying around with `cat jonesforth.f --` -style things.
 
 s" Hello world!" string: greeting
 greeting println nl print
