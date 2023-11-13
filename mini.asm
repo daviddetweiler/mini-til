@@ -299,6 +299,7 @@ section .text
 
     ; --
     primitive crash
+        xor rcx, rcx
         int 0x29 ; fast_fail_fatal_app_exit
 
     ; -- ptr size
@@ -666,7 +667,7 @@ section .rdata
         da drop
         da etok
         da print
-        jump_to .abort
+        da abort
 
         .good:
         da number
@@ -681,7 +682,7 @@ section .rdata
         da print
         da efind
         da print
-        jump_to .abort
+        da abort
 
         .found:
         da copy
@@ -717,7 +718,7 @@ section .rdata
         da zeroes
         da exit
 
-        .abort:
+    procedure abort
         da ones
         da exit
 
@@ -778,12 +779,18 @@ section .rdata
         da zeroes
         da eq
         da not
-        da assert
-        da drop
+        branch_to .good
+        da einit
+        da print
+        da abort
+
+        .good:
         da in
         da store
 
         da return
+
+    string einit, `init.mini not found\n`
 
     ; ptr size --
     procedure print
@@ -1069,8 +1076,7 @@ section .rdata
         da store
         da return
 
-    constant ffi_gpa, address(GetProcAddress)
-    constant ffi_gmh, address(GetModuleHandleA)
+    constant ffi, address(imports)
 
     ; --
     procedure newhdr
@@ -1111,6 +1117,7 @@ section .bss
     dstack:
         resq stack_depth
 
+    imports:
     GetProcAddress:
         resq 1
 

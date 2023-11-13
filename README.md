@@ -1,10 +1,11 @@
 # `mini`
 
 `mini` is a "complete" Forth-like language / command interpreter hosted by a single 4096-byte Windows executable. New
-primitive words can be defined circuitously through `assemble_byte` and `ffi_gpa`/`ffi_gmh`
-(`GetProcAddress`/`GetModuleHandle`), and everything else is achievable through its minimalist memory management and
-assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context. `init.mini` is run on startup and
-can be used to define your own programs, or to set up a slightly nicer interactive environment, as it currently does.
+primitive words can be defined circuitously through `assemble_byte` and `ffi` (the internal import table, which also
+contains `GetModuleHandleA` and `GetProcAddress`), and everything else is achievable through its minimalist memory
+management and assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context. `init.mini` is run
+on startup and can be used to define your own programs, or to set up a slightly nicer interactive environment, as it
+currently does.
 
 ## Build Instructions
 
