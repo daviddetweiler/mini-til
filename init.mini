@@ -134,10 +134,11 @@ fn: string:
     0 basm
 end-fn
 
-# NOTE: AttachConsole() could be used to attach an interpreter implemented in a piped-in script to the console of the
-# parent powershell process. I.e. no toying around with `cat jonesforth.f --` -style things.
+s" Mini (C) 2023 David Detweiler" string: banner
+s" Enter `kernel walk` to see the list of instructions defined by the kernel" string: hint
+banner println
+hint println
+nl print
 
-s" Hello world!" string: greeting
-greeting println nl print
-
-kernel walk
+# The magical part where we yield control back to the terminal
+stdin load in store

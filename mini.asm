@@ -198,6 +198,7 @@ section .text
         import WriteFile
         import ReadFile
         import GetLastError
+        import CreateFileA
 
         lea tp, program
         next
@@ -625,6 +626,24 @@ section .text
         mov [dp], rax
         next
 
+    ; name -- handle-or-invalid
+    primitive open
+        mov rcx, [dp]
+		mov rdx, 0x80000000 ; GENERIC_READ
+		xor r8, r8
+		xor r9, r9
+		mov qword [rsp + 8 * 4], 3 ; OPEN_EXISTING
+		mov qword [rsp + 8 * 5], 0x80 ; FILE_ATTRIBUTE_NORMAL
+		mov qword [rsp + 8 * 6], r9
+		call_import CreateFileA
+		cmp rax, -1
+		jne .success
+		mov rax, 0
+
+		.success:
+		mov [dp], rax
+		next
+
 section .rdata
     align 8
     program:
@@ -729,16 +748,14 @@ section .rdata
         da store
         da here
         da store
-        da banner
-        da print
         da return
-
-    string banner, `Mini (C) 2023 David Detweiler\n\n`
 
     variable dict, 1
 
     variable stdin, 1
     variable stdout, 1
+
+    string libname, `init.mini`
 
     ; --
     procedure init_io
@@ -752,6 +769,18 @@ section .rdata
         da handle
         da assert
         da stdout
+        da store
+
+        da libname
+        da drop
+        da open
+        da copy
+        da zeroes
+        da eq
+        da not
+        da assert
+        da drop
+        da in
         da store
 
         da return
@@ -768,6 +797,7 @@ section .rdata
     variable in_buf, (config_in_buf_size / 8) + 1
     variable in_end, 1
     constant in_lim, config_in_buf_size
+    variable in, 1
 
     ; -- eof?
     procedure in_fill
@@ -776,7 +806,7 @@ section .rdata
         da in_ptr
         da store
         da in_lim
-        da stdin
+        da in
         da load
         da rfile
         branch_to .success
@@ -959,6 +989,7 @@ section .rdata
     name WriteFile, "WriteFile"
     name ReadFile, "ReadFile"
     name GetLastError, "GetLastError"
+    name CreateFileA, "CreateFileA"
 
     string etok, `Token too long\n`
     string efind, ` not found\n`
@@ -1099,6 +1130,9 @@ section .bss
         resq 1
 
     GetLastError:
+        resq 1
+
+    CreateFileA:
         resq 1
 
 section .rdata
