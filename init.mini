@@ -124,36 +124,32 @@ fn: string-from-range
     over sub
 end-fn
 
-# Because of how prs_ch works, this treats the end of line as an implicit closing quote, which I guess is neat, though
-# utterly useless.
+# Multiline strings should be easy to implement; each go of the loop we `scopy` the stuff we've found
+# so far into the arena, and finally return pointers.
 # -- string length
 fn: s"
     \
         Block comments even work inside assembly mode
     \
-    in_ptr load quotes prs_ch
-    in_ptr load 1 add swap
-    copy 1 add in_adv drop drop
+    here load
+    do
+        in_ptr load
+        copy quotes prs_ch
+        string-from-range
+        over over here load scopy
+        copy here load add here store
+        add in_adv swap not or not
+    loop
+
+    1 add # Trim leading space
+
+    in_ptr load 1 add in_adv drop drop
+    here load 1 add copy calign here store
     string-from-range
 end-fn
 
-# string length --
-fn: string:
-    newhdr
-    str asm
-    copy basm
-
-    here load over over add push
-    scopy
-
-    pop here store
-    0 basm
-end-fn
-
-s" Mini (C) 2023 David Detweiler" string: banner
-s" Enter `kernel walk` to see the list of instructions defined by the kernel" string: hint
-banner println
-hint println
+s" Mini (C) 2023 David Detweiler
+Enter `kernel walk` to see the list of instructions defined by the kernel" println
 nl print
 
 # The magical part where we yield control back to the terminal
