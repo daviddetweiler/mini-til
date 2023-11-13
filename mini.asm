@@ -637,22 +637,6 @@ section .text
         mov [dp], rax
         next
 
-    ; handle cstring -- ptr
-    primitive ffi_gpa
-        mov rcx, [dp]
-        mov rdx, [dp + 8]
-        call_import GetProcAddress
-        add dp, 8
-        mov [dp], rax
-        next
-
-    ; cstring -- handle
-    primitive ffi_gmh
-        mov rcx, [dp]
-        call_import GetModuleHandleA
-        mov [dp], rax
-        next
-
 section .rdata
     align 8
     program:
@@ -1064,12 +1048,8 @@ section .rdata
         da store
         da return
 
-    code_field next_impl, ptr_str
-        db .end - .start
-        .start:
-        next
-
-        .end:
+    constant ffi_gpa, address(GetProcAddress)
+    constant ffi_gmh, address(GetModuleHandleA)
 
 section .bss
     rstack:
