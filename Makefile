@@ -1,27 +1,26 @@
-mini.exe: loader.obj
-    link loader.obj kernel32.lib \
+mini.exe: mini.obj
+    link mini.obj kernel32.lib \
         /entry:start \
         /subsystem:console \
         /fixed \
-        /out:mini.exe \
         /ignore:4254 \
         /merge:.rdata=kernel \
         /merge:.text=kernel \
         /section:kernel,RE
 
-mini.bin: mini.asm
-    nasm mini.asm -fbin -o mini.bin
+kernel.bin: kernel.asm
+    nasm kernel.asm -fbin -o kernel.bin
 
-mini.bin.bw: mini.bin bitweaver.py
-    python .\bitweaver.py pack mini.bin mini.bin.bw
+kernel.bin.bw: kernel.bin bitweaver.py
+    python .\bitweaver.py pack kernel.bin kernel.bin.bw
 
 bitweaver.py: ac.py
 
-bitstream.inc: mini.bin.bw inc.py
-    python .\inc.py mini.bin.bw bitstream.inc
+bitstream.inc: kernel.bin.bw inc.py
+    python .\inc.py kernel.bin.bw bitstream.inc
 
-loader.obj: loader.asm bitstream.inc
-    nasm loader.asm -fwin64
+mini.obj: mini.asm bitstream.inc
+    nasm mini.asm -fwin64
 
 clean:
     del *.obj *.exe *.bw *.inc *.bin
