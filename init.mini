@@ -124,6 +124,11 @@ fn: string-from-range
     over sub
 end-fn
 
+fn: var-add         \ n var -- \            swap over load add swap store           end-fn
+fn: copy-pair       \ a b -- a b a b \      over over                               end-fn
+fn: asm-string      \ string length -- \    swap over here load scopy here var-add  end-fn
+fn: realign-arena   \ -- \                  here load calign here store             end-fn
+
 # Multiline strings should be easy to implement; each go of the loop we `scopy` the stuff we've found
 # so far into the arena, and finally return pointers.
 # -- string length
@@ -136,21 +141,24 @@ fn: s"
         in_ptr load
         copy quotes prs_ch
         string-from-range
-        over over here load scopy
-        copy here load add here store
+        copy-pair asm-string
         add in_adv swap not or not
     loop
 
     1 add # Trim leading space
 
-    in_ptr load 1 add in_adv drop drop
-    here load copy 1 add calign here store
+    in_ptr load 1 add in_adv drop drop      # Consume closing quote
+    0 basm                                  # Null-terminate
+    here load
+    realign-arena
     string-from-range
 end-fn
 
+fn: next-line \ -- \ nl print end-fn
+
 s" Mini (C) 2023 David Detweiler
 Enter `kernel walk` to see the list of instructions defined by the kernel" println
-nl print
+next-line
 
 # The magical part where we yield control back to the terminal
 stdin load
