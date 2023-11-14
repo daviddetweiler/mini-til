@@ -651,7 +651,7 @@ section .text
     primitive open
         mov rcx, [dp]
 		mov rdx, 0x80000000 ; GENERIC_READ
-		xor r8, r8
+		mov r8, 1 ; FILE_SHARE_READ
 		xor r9, r9
 		mov qword [rsp + 8 * 4], 3 ; OPEN_EXISTING
 		mov qword [rsp + 8 * 5], 0x80 ; FILE_ATTRIBUTE_NORMAL

@@ -77,6 +77,11 @@ defstr: nl
 10 basm
 0 basm
 
+defstr: tab
+1 basm
+9 basm
+0 basm
+
 # str len --
 fn: println
     print nl print
@@ -87,6 +92,7 @@ end-fn
 # ptr --
 fn: walk
     do
+        tab print
         copy de_name println
         load copy
     loop
@@ -129,6 +135,26 @@ fn: copy-pair       \ a b -- a b a b \      over over                           
 fn: asm-string      \ string length -- \    swap over here load scopy here var-add  end-fn
 fn: realign-arena   \ -- \                  here load calign here store             end-fn
 
+fn: patch-target
+    \ patch-address -- \
+    here load over 8 add sub
+    swap store
+end-fn
+
+fn: if
+    \ -- patch-address \
+    lit zeroes asm
+    lit eq asm
+    lit branch asm
+    here load
+    0 asm
+end-fn immediate
+
+fn: end-if
+    \ patch-address -- \
+    patch-target
+end-fn immediate
+
 # Multiline strings should be easy to implement; each go of the loop we `scopy` the stuff we've found
 # so far into the arena, and finally return pointers.
 # -- string length
@@ -136,6 +162,14 @@ fn: s"
     \
         Block comments even work inside assembly mode
     \
+
+    mode load if
+        # This will be patched later so that an inline string can be skipped
+        lit jump asm
+        here load push
+        0 asm
+    end-if
+
     here load
     do
         in_ptr load
@@ -151,15 +185,27 @@ fn: s"
     0 basm                                  # Null-terminate
     here load
     realign-arena
-    string-from-range
-end-fn
+    string-from-range 1 sub
+
+    mode load if
+        pop patch-target
+        swap
+        lit lit asm
+        asm
+        lit lit asm
+        asm
+    end-if
+end-fn immediate
 
 fn: next-line \ -- \ nl print end-fn
 
-s" Mini (C) 2023 David Detweiler
-Enter `kernel walk` to see the list of instructions defined by the kernel" println
-next-line
+fn: start
+    \ -- \
+    s" Mini (C) 2023 David Detweiler" println
+    s" Enter `kernel walk` to see the list of instructions defined by the kernel" println
+    next-line
+    stdin load
+    in store
+end-fn
 
-# The magical part where we yield control back to the terminal
-stdin load
-in store
+start
