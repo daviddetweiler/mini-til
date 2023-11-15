@@ -78,8 +78,8 @@ defstr: nl
 0 basm
 
 defstr: tab
-1 basm
-9 basm
+4 basm
+32 copy copy copy basm basm basm basm
 0 basm
 
 # str len --
@@ -155,6 +155,12 @@ fn: end-if
     patch-target
 end-fn immediate
 
+fn: assemble-literal
+    \ value -- \
+    lit lit asm
+    asm
+end-fn
+
 # Multiline strings should be easy to implement; each go of the loop we `scopy` the stuff we've found
 # so far into the arena, and finally return pointers.
 # -- string length
@@ -190,22 +196,15 @@ fn: s"
     mode load if
         pop patch-target
         swap
-        lit lit asm
-        asm
-        lit lit asm
-        asm
+        assemble-literal
+        assemble-literal
     end-if
 end-fn immediate
 
 fn: next-line \ -- \ nl print end-fn
 
-fn: start
-    \ -- \
-    s" Mini (C) 2023 David Detweiler" println
-    s" Enter `kernel walk` to see the list of instructions defined by the kernel" println
-    next-line
-    stdin load
-    in store
-end-fn
+s" Mini (C) 2023 David Detweiler" println
+next-line
 
-start
+s" The kernel defines only the following instructions:" println
+kernel walk

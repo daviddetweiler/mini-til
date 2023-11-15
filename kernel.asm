@@ -773,20 +773,12 @@ section .rdata
         da return
 
     variable dict, 1
-
-    variable stdin, 1
     variable stdout, 1
 
     string libname, `init.mini`
 
     ; --
     procedure init_io
-        literal -10
-        da handle
-        da assert
-        da stdin
-        da store
-
         literal -11
         da handle
         da assert

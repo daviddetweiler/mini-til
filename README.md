@@ -4,8 +4,7 @@
 primitive words can be defined circuitously through `assemble_byte` and `ffi` (the internal import table, which also
 contains `GetModuleHandleA` and `GetProcAddress`), and everything else is achievable through its minimalist memory
 management and assembly mode. See _Thinking Forth_ or _Threaded Interpretive Languages_ for context. `init.mini` is run
-on startup and can be used to define your own programs, or to set up a slightly nicer interactive environment, as it
-currently does.
+on startup and can be used to define your own programs.
 
 ## Build Instructions
 
