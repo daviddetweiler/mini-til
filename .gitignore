@@ -10,3 +10,4 @@ report.md
 
 # Python Cache
 __pycache__/
+.vscode/

@@ -1,7 +1,7 @@
 flush Some useful procedures
 
 flush --
-newhdr immediate
+newhdr extends-assembler
 proc asm
 begin
     dict load
@@ -20,7 +20,7 @@ begin
     prs_nxt drop
     prs_wrd find de_name add calign asm
     return
-end immediate
+end extends-assembler
 
 
 flush --
@@ -30,7 +30,7 @@ proc asm
 begin
     ' flush
     return
-end immediate
+end extends-assembler
 
 # Now we have comments syntax, so lets define function syntax
 
@@ -49,20 +49,20 @@ fn: end-fn
     lit return asm
     ' end
     return
-end immediate
+end extends-assembler
 
 # Now loops
 
 # -- target
 fn: do
     here load
-end-fn immediate
+end-fn extends-assembler
 
 # target --
 fn: loop
     lit branch asm
     here load 8 add sub asm
-end-fn immediate
+end-fn extends-assembler
 
 # Some output helpers
 
@@ -116,7 +116,7 @@ fn: \
     loop
 
     in_ptr load 1 add in_adv drop drop
-end-fn immediate
+end-fn extends-assembler
 
 \
     The above magic little definition lets us do block comments
@@ -132,7 +132,7 @@ end-fn
 
 fn: var-add         \ n var -- \            swap over load add swap store           end-fn
 fn: copy-pair       \ a b -- a b a b \      over over                               end-fn
-fn: asm-string      \ string length -- \    swap over here load scopy here var-add  end-fn
+fn: assemble-string \ string length -- \    swap over here load scopy here var-add  end-fn
 fn: realign-arena   \ -- \                  here load calign here store             end-fn
 
 fn: patch-target
@@ -148,12 +148,12 @@ fn: if
     lit branch asm
     here load
     0 asm
-end-fn immediate
+end-fn extends-assembler
 
 fn: end-if
     \ patch-address -- \
     patch-target
-end-fn immediate
+end-fn extends-assembler
 
 fn: assemble-literal
     \ value -- \
@@ -181,8 +181,7 @@ fn: s"
         in_ptr load
         copy quotes prs_ch
         string-from-range
-        copy-pair asm-string
-        add in_adv swap not or not
+        copy-pair assemble-string    add in_adv swap not or not
     loop
 
     1 add # Trim leading space
@@ -199,7 +198,7 @@ fn: s"
         assemble-literal
         assemble-literal
     end-if
-end-fn immediate
+end-fn extends-assembler
 
 fn: next-line \ -- \ nl print end-fn
 
