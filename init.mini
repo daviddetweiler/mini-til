@@ -207,3 +207,69 @@ next-line
 
 s" The kernel defines only the following instructions:" println
 kernel walk
+
+\
+    Assembles the machine code for:
+    mov wp, [tp]
+    add tp, 8
+    jmp [wp]
+\
+
+fn: asm-next
+    \ -- \
+    77  basm
+    139 basm
+    55  basm
+    73  basm
+    131 basm
+    199 basm
+    8   basm
+    65  basm
+    255 basm
+    38  basm
+end-fn
+
+fn: const:
+    \ value -- \
+    newhdr
+    const asm
+    asm
+end-fn
+
+\
+    The following is the machine code for:
+    lea rax, [wp + 8]
+    sub dp, 8
+    mov [dp], rax
+    next
+\
+
+here load
+73  basm
+141 basm
+70  basm
+8   basm
+73  basm
+131 basm
+236 basm
+8   basm
+73  basm
+137 basm
+4   basm
+36  basm
+asm-next
+realign-arena
+const: var
+
+fn: var:
+    \ cells -- \
+    newhdr
+    drop var asm
+    0 asm
+end-fn
+
+1 var: foo
+
+12 foo store
+foo load copy sub foo store
+foo load exit
