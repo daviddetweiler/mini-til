@@ -183,6 +183,8 @@ section .bss
     bss_start:
 
 section .text
+    align 8
+    dq bss_end - bss_start
     boot:
         mov rsi, rcx
         mov rdi, rdx
@@ -1160,7 +1162,3 @@ section .rdata
 
 section .bss
     bss_end:
-
-section .rdata
-    align 8
-    dq bss_end - bss_start
