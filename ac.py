@@ -68,25 +68,84 @@ class GlobalAdaptiveModel:
         return len(self.histogram)
 
 
-class AdaptiveMarkovModel:
-    def __init__(self, n_symbols):
-        self.context_models = [GlobalAdaptiveModel(n_symbols) for _ in range(n_symbols)]
-        self.context = 0
-
-    def pvalue(self, symbol):
-        return self.context_models[self.context].pvalue(symbol)
-
-    def update(self, symbol):
-        self.context_models[self.context].update(symbol)
-        self.context = symbol
-
-    def range(self):
-        return self.context_models[self.context].range()
-
-
-MAGIC = 64 - 48
+MAGIC = 64 - 6
 LBOUND = shl(1, MAGIC)
 UBOUND = subtract(0, LBOUND)
+
+# TODO: check precision guarantees (0x4cfffff..., 0x4d01000000...) seems to me the smallest possible interval width
+# (2^48 + 1)
+
+
+class MarkovNode:
+    def __init__(self):
+        self.model = GlobalAdaptiveModel(2)
+        self.children = [None, None]
+        self.tag = None
+
+
+class MarkovChainModel:
+    def __init__(self, node: MarkovNode):
+        self.node = node
+
+    def pvalue(self, symbol):
+        return self.node.model.pvalue(symbol)
+
+    def update(self, symbol):
+        self.node.model.update(symbol)
+        self.node = self.node.children[symbol]
+
+    def range(self):
+        return 2
+
+
+def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
+    if n == 0:
+        return end
+    else:
+        node = MarkovNode()
+        node.children[0] = build_markov_bitstring(end, n - 1)
+        node.children[1] = build_markov_bitstring(end, n - 1)
+        return node
+
+
+def markov_join(node: MarkovNode, other: MarkovNode):
+    joined = MarkovNode()
+    joined.children[0] = node
+    joined.children[1] = other
+    return joined
+
+
+def build_markov_chain() -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    short_length_model = build_markov_bitstring(root, 7)
+    short_length_model.tag = "short_length"
+    ext_length_model = build_markov_bitstring(short_length_model, 8)
+    ext_length_model.tag = "ext_length"
+    length_model = markov_join(short_length_model, ext_length_model)
+    length_model.tag = "length"
+
+    short_offset_model = build_markov_bitstring(length_model, 7)
+    short_offset_model.tag = "short_offset"
+    ext_offset_model = build_markov_bitstring(short_offset_model, 8)
+    ext_offset_model.tag = "ext_offset"
+    offset_model = markov_join(short_offset_model, ext_offset_model)
+    offset_model.tag = "offset"
+
+    literal_model = build_markov_bitstring(root, 8)
+    literal_model.tag = "literal"
+    root.children[0] = literal_model
+    root.children[1] = offset_model
+
+    return root
+
+
+def build_markov_loop(n: int) -> MarkovNode:
+    root = MarkovNode()
+    root.tag = "root"
+    root.children[0] = build_markov_bitstring(root, n - 1)
+    root.children[1] = build_markov_bitstring(root, n - 1)
+    return root
 
 
 class Encoder:
@@ -249,8 +308,8 @@ if __name__ == "__main__":
         print("Usage: ac.py <pack|unpack> <input> <output>")
         sys.exit(1)
 
-    with open(sys.argv[2], "rb") as f:
-        data = f.read()
+    with open(sys.argv[2], "rb") as r:
+        data = r.read()
 
     if sys.argv[1] == "pack":
         e = entropy(data)
@@ -273,10 +332,10 @@ if __name__ == "__main__":
         print(
             f"{100 * (len(encoded) - min_size) / min_size:.2f}%\tadaptive coding overhead"
         )
-        with open(sys.argv[3], "wb") as f:
-            f.write(encoded)
+        with open(sys.argv[3], "wb") as w:
+            w.write(encoded)
     elif sys.argv[1] == "unpack":
         decoder = Decoder(data)
         decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        with open(sys.argv[3], "wb") as f:
-            f.write(decoded)
+        with open(sys.argv[3], "wb") as w:
+            w.write(decoded)
