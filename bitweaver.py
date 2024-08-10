@@ -1,10 +1,10 @@
 import sys
 import ac
 import math
+from typing import *
 
 
 def encode_15bit(n: int) -> bytes:
-    assert 0 <= n < 2**15
     if n < 0x80:
         return n.to_bytes(1, "big")
     else:
@@ -39,68 +39,81 @@ def decode_bytes(decoder: ac.Decoder, bit_model, count: int) -> bytes:
     return bytes(data)
 
 
+class Memo:
+    def __init__(self, cbit: int, data: bytes, cost: int, next: int):
+        self.data = data
+        self.cbit = cbit
+        self.cost = cost
+        self.next = next
+
+
+def unwrap(memo: Optional[Memo]) -> Memo:
+    assert memo is not None
+    return memo
+
+
 def encode(data: bytes, allocation_size: int) -> bytes:
     encoder = ac.Encoder()
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
-    expected_bytes = len(data)
-    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
-    assert dummy_model.node.tag == "root"
-    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
-
-    window = 2**15 - 1
-    i = 0
-    while i < len(data):
-        # At least 2 bytes are needed to encode a match, so we match only 3 bytes or more.
+    WINDOW_SIZE = 2**15 - 1
+    memoization: List[Optional[Memo]] = [None] * len(data)
+    for n in range(len(data)):
+        i = len(data) - n - 1
         j = 3
-        longest_match = None
+        lit_next_cost = unwrap(memoization[i + 1]).cost if i + 1 < len(data) else 0
+        best_option = Memo(0, data[i : i + 1], 1 + 8 + lit_next_cost, i + 1)
         while True:
             if i + j > len(data):
                 break
 
-            window_base = max(0, i - window)
+            window_base = max(0, i - WINDOW_SIZE)
             window_data = data[window_base : i + j - 1]
             m = window_data.rfind(data[i : i + j])
             if m == -1:
                 break
 
             o, l = i - (window_base + m), j
-            longest_match = o, l
+            offset_code = encode_15bit(o)
+            length_code = encode_15bit(l)
+            backref_cost = len(offset_code) + len(length_code)
+            next_cost = unwrap(memoization[i + l]).cost if i + l < len(data) else 0
+            backref_cost *= 8
+            backref_cost += next_cost
+            if backref_cost < best_option.cost:
+                best_option = Memo(
+                    1, offset_code + length_code, backref_cost + 1, i + l
+                )
+
             j += 1
 
-        assert bid_model.node.tag == "root"
-        if longest_match is not None:
-            offset, length = longest_match
-            offset_code = encode_15bit(offset)
-            length_code = encode_15bit(length)
-            if len(offset_code) + len(length_code) < length:
-                encoder.encode(bid_model, [1])
-                assert bid_model.node.tag == "offset"
-                encode_bytes(encoder, bid_model, offset_code[:1])
-                if len(offset_code) > 1:
-                    encode_bytes(encoder, bid_model, offset_code[1:])
+        memoization[i] = best_option
 
-                assert bid_model.node.tag == "length"
-                encode_bytes(encoder, bid_model, length_code[:1])
-                if len(length_code) > 1:
-                    encode_bytes(encoder, bid_model, length_code[1:])
+    expected_bytes = len(data)
+    encode_bytes(encoder, dummy_model, allocation_size.to_bytes(4, "big"))
+    assert dummy_model.node.tag == "root"
+    encode_bytes(encoder, dummy_model, expected_bytes.to_bytes(4, "big"))
 
-                i += length
-            else:
-                encoder.encode(bid_model, [0])
-                assert bid_model.node.tag == "literal"
-                encode_bytes(encoder, bid_model, data[i : i + 1])
-                i += 1
-        else:
-            encoder.encode(bid_model, [0])
-            assert bid_model.node.tag == "literal"
-            encode_bytes(encoder, bid_model, data[i : i + 1])
-            i += 1
+    i = 0
+    start_count = encoder.input_count
+    while i < len(data):
+        memo = memoization[i]
+        assert memo is not None
+        encoder.encode(chain_model, [memo.cbit])
+        encode_bytes(encoder, chain_model, memo.data)
+        i = memo.next
 
+    end_count = encoder.input_count
     coded = encoder.end_stream()
     print(len(coded), "bytes compressed", sep="\t")
+    print(end_count - start_count, "bits uncoded", sep="\t")
+    print("Model miss rates:")
+    buckets = ac.compute_miss_rate(chain_model.node)
+    for bucket in buckets:
+        miss_rate = buckets[bucket]
+        print(f"\t{bucket}{' ' * (16 - len(bucket))}{100*miss_rate:.2f}%")
 
     return coded
 
@@ -113,32 +126,28 @@ def decode_15bit(data: bytes) -> int:
         return int.from_bytes(data, "big") & 0x7FFF
 
 
-assert decode_15bit(encode_15bit(0)) == 0
-assert decode_15bit(encode_15bit(1234)) == 1234, decode_15bit(encode_15bit(1234))
-
-
 def decode(encoded: bytes) -> bytes:
     decoder = ac.Decoder(encoded)
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
     _ = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
     expected_bytes = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
 
     decompressed = b""
     while len(decompressed) < expected_bytes:
-        bit = decoder.decode(bid_model, 1)[0]
+        bit = decoder.decode(chain_model, 1)[0]
         if bit == 0:
-            literal = decode_byte(decoder, bid_model)
+            literal = decode_byte(decoder, chain_model)
             decompressed += literal
         else:
-            offset_bytes = decode_byte(decoder, bid_model)
+            offset_bytes = decode_byte(decoder, chain_model)
             if offset_bytes[0] & 0x80 != 0:
-                offset_bytes += decode_byte(decoder, bid_model)
+                offset_bytes += decode_byte(decoder, chain_model)
 
-            length_bytes = decode_byte(decoder, bid_model)
+            length_bytes = decode_byte(decoder, chain_model)
             if length_bytes[0] & 0x80 != 0:
-                length_bytes += decode_byte(decoder, bid_model)
+                length_bytes += decode_byte(decoder, chain_model)
 
             offset = decode_15bit(offset_bytes)
             length = decode_15bit(length_bytes)
@@ -159,21 +168,23 @@ def decode(encoded: bytes) -> bytes:
     return decompressed
 
 
-def get_size(data: bytes) -> int:
+def get_size(data: bytes) -> Tuple[bytes, int]:
     bss_size = 0
     bss_size = int.from_bytes(data[0:8], "little")
     if bss_size > 2**32:  # We're probably dealing with a non-image
         bss_size = 0
+    else:
+        data = data[8:]
 
     print(bss_size, "extra bytes of BSS", sep="\t")
 
-    return len(data) + bss_size
+    return data, len(data) + bss_size
 
 
 def info(data: bytes) -> None:
     decoder = ac.Decoder(data)
     big_chain = ac.build_markov_chain()
-    bid_model = ac.MarkovChainModel(big_chain)
+    chain_model = ac.MarkovChainModel(big_chain)
     dummy_model = ac.MarkovChainModel(ac.build_markov_loop(1))
 
     allocation_size = int.from_bytes(decode_bytes(decoder, dummy_model, 4), "big")
@@ -191,25 +202,25 @@ def info(data: bytes) -> None:
     extended_offset_count = 0
     extended_length_count = 0
     while bytes_counted < expected_bytes:
-        bit = decoder.decode(bid_model, 1)[0]
+        bit = decoder.decode(chain_model, 1)[0]
         control_bit_count += 1
         if bit == 0:
-            decode_byte(decoder, bid_model)
+            decode_byte(decoder, chain_model)
             literal_byte_count += 1
             bytes_counted += 1
         else:
             pair_count += 1
-            b = decode_byte(decoder, bid_model)
+            b = decode_byte(decoder, chain_model)
             offset_byte_count += 1
             if b[0] & 0x80 != 0:
-                decode_byte(decoder, bid_model)
+                decode_byte(decoder, chain_model)
                 offset_byte_count += 1
                 extended_offset_count += 1
 
-            b = decode_byte(decoder, bid_model)
+            b = decode_byte(decoder, chain_model)
             length_byte_count += 1
             if b[0] & 0x80 != 0:
-                b += decode_byte(decoder, bid_model)
+                b += decode_byte(decoder, chain_model)
                 length_byte_count += 1
                 extended_length_count += 1
 
@@ -228,8 +239,6 @@ def info(data: bytes) -> None:
         + literal_byte_count
         + offset_byte_count
         + length_byte_count
-        + extended_offset_count
-        + extended_length_count
     )
 
     print(uncoded_length, "bytes uncoded", sep="\t")
@@ -255,7 +264,7 @@ if __name__ == "__main__":
         data = rf.read()
 
     if command == "pack":
-        full_size = get_size(data)
+        data, full_size = get_size(data)
         encoded = encode(data, full_size)
         print(f"{100 * len(encoded) / len(data) :.2f}%\tcompression ratio")
         decoded = decode(encoded)

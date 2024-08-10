@@ -1,5 +1,7 @@
 import sys
 import math
+from collections import defaultdict
+from typing import *
 
 UPPER8 = ((1 << 8) - 1) << (64 - 8)
 TAIL8 = UPPER8 >> 8
@@ -68,34 +70,67 @@ class GlobalAdaptiveModel:
         return len(self.histogram)
 
 
-MAGIC = 64 - 6
-LBOUND = shl(1, MAGIC)
-UBOUND = subtract(0, LBOUND)
-
-# TODO: check precision guarantees (0x4cfffff..., 0x4d01000000...) seems to me the smallest possible interval width
-# (2^48 + 1)
-
-
 class MarkovNode:
     def __init__(self):
         self.model = GlobalAdaptiveModel(2)
         self.children = [None, None]
         self.tag = None
+        self.mispredictions = 0
+        self.processed = 0
 
 
 class MarkovChainModel:
     def __init__(self, node: MarkovNode):
         self.node = node
+        self.named_parent = node
+        self.already_missed = False
 
     def pvalue(self, symbol):
         return self.node.model.pvalue(symbol)
 
     def update(self, symbol):
+        predicted = 0 if self.node.model.pvalue(0) > self.node.model.pvalue(1) else 1
+        if self.node.tag is not None:
+            self.node.processed += 1
+
+        if predicted != symbol and not self.already_missed:
+            self.named_parent.mispredictions += 1
+            self.already_missed = True
+
         self.node.model.update(symbol)
         self.node = self.node.children[symbol]
+        if self.node.tag is not None:
+            self.named_parent = self.node
+            self.already_missed = False
 
     def range(self):
         return 2
+
+
+def compute_miss_recursively(
+    node: MarkovNode,
+    buckets: Dict[str, Tuple[int, int]],
+    visited: Set[MarkovNode] = set(),
+) -> None:
+    if node in visited:
+        return
+
+    a, b = node.children
+    if a is not None and a.tag != "root":
+        compute_miss_recursively(a, buckets)
+    if b is not None and b.tag != "root":
+        compute_miss_recursively(b, buckets)
+
+    if node.tag is not None:
+        buckets[node.tag] = node.mispredictions, node.processed
+
+    visited.add(node)
+
+
+def compute_miss_rate(node: MarkovNode) -> Dict[str, float]:
+    buckets: Dict[str, Tuple[int, int]] = defaultdict(lambda: (0, 0))
+    compute_miss_recursively(node, buckets)
+    return {k: n / t for k, (n, t) in buckets.items() if t > 0}
 
 
 def build_markov_bitstring(end: MarkovNode, n: int) -> MarkovNode:
@@ -155,8 +190,12 @@ class Encoder:
         self.encoded = b""
         self.pending = 0
         self.leader = 0
+        self.input_count = 0
 
     def encode(self, model, data):
+        assert model.range() == 2
+        self.input_count += len(data)
+
         for byte in data:
             interval_width = subtract(self.b, self.a)
             for i in range(model.range()):
@@ -301,41 +340,3 @@ class Decoder:
         )
 
         self.i += 1
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] not in ("pack", "unpack"):
-        print("Usage: ac.py <pack|unpack> <input> <output>")
-        sys.exit(1)
-
-    with open(sys.argv[2], "rb") as r:
-        data = r.read()
-
-    if sys.argv[1] == "pack":
-        e = entropy(data)
-        print(f"{e:.2f}\tbits of entropy per symbol")
-        print(f"{100 * e / 8 :.2f}%\toptimal compression ratio")
-        min_size = math.ceil((e / 8) * len(data))
-
-        encoder = Encoder()
-        encoder.encode(GlobalAdaptiveModel(256), data)
-        encoded = encoder.end_stream()
-
-        decoder = Decoder(encoded)
-        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        if decoded != list(data):
-            print("Stream corruption detected!")
-            sys.exit(1)
-
-        print(len(encoded), "compressed size", sep="\t")
-        print(f"{100 * len(encoded) / len(data):.2f}%\tcompression ratio")
-        print(
-            f"{100 * (len(encoded) - min_size) / min_size:.2f}%\tadaptive coding overhead"
-        )
-        with open(sys.argv[3], "wb") as w:
-            w.write(encoded)
-    elif sys.argv[1] == "unpack":
-        decoder = Decoder(data)
-        decoded = decoder.decode(GlobalAdaptiveModel(256), len(data))
-        with open(sys.argv[3], "wb") as w:
-            w.write(decoded)
