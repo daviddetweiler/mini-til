@@ -21,7 +21,7 @@ global boot
     mov [%1], rax
 %endmacro
 
-%define address(label) (label) + base_address
+%define address(label) (label) + base_address - 8
 
 %macro da 1
     dq address(%1)
@@ -47,7 +47,7 @@ global boot
 
 %assign top_entry 0
 %define entry(id) header_ %+ id
-%define header_0 0 - base_address
+%define header_0 0 - (base_address - 8)
 %assign this_entry_flag 0
 %assign dict_finalized 0
 

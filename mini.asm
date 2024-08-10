@@ -146,7 +146,7 @@ section .text
         jnz .next_command
 
     load:
-        mov rax, image_base + 8
+        mov rax, image_base
         lea rcx, GetModuleHandleA
         lea rdx, GetProcAddress
         jmp rax
